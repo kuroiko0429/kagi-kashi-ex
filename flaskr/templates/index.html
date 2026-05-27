@@ -1,57 +1,14 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <title>Document</title>
-</head>
-<body class="w-screen h-screen">
-  <header class="flex fixed top-0 w-full bg-white items-center h-16">
-    <h1 class="ml-6 font-bold text-2xl">鍵貸出システム</h1>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Document</title>
+  </head>
+  <body class="w-screen h-screen">
+    
 
-  <main class="w-full h-full px-30 py-10 pt-26 bg-gray-200">
-    <div class="w-full h-5/6 border rounded bg-white">
-      <div class="flex justify-center w-full my-4 px-4">
-        <div class="flex items-center w-full h-10 border rounded-md bg-gray-100">
-          <div class="w-8 h-8 ml-2 bg-gray-300"></div>
-          <p class="ml-4 text-gray-600">部屋名で検索</p>
-        </div>
-      </div>
-      
-      <div class="h-3/4 border-t border-b overflow-y-scroll ">
-        <table class="w-full">
-          <tr class="sticky top-0 h-8 bg-gray-200">
-            <th class="text-left w-1/5">鍵番号</th>
-            <th class="text-left w-2/5">部屋名</th>
-            <th class="text-left w-1/5">状態</th>
-            <th class="text-left w-1/5">コメント</th>
-          </tr>
-          {% for key in keys%}
-            <tr class="h-10 border-b">
-              <td class="">{{ key.id }}</td>
-              <td class="">{{ key.name }}</td>
-              {% if key.state == 1%}
-                <td class="">
-                  <div class="flex justify-center items-center w-20 h-8 rounded-2xl bg-green-200">貸出中</div>
-                </td>
-              {% else %}
-                <td class="">
-                  <div class="flex justify-center items-center w-20 h-8 rounded-2xl bg-gray-200">保管中</div>
-                </td>
-              {% endif %}
-              <td class="">{{ key.comment }}</td>
-            </tr>
-          {% endfor %}
-        </table>
-      </div>
-      
-      <div class="flex justify-end w-full my-4">
-        <div class="flex justify-center items-center w-24 h-10 mr-4 rounded-md bg-green-400">借りる</div>
-      </div>
-    </div>
-  </main>
-  <small class="absolute bottom-2">&copy; 2026 Hokkaido Information University</small>
-</body>
+  </body>
 </html>
+
