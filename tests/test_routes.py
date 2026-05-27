@@ -179,6 +179,79 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertIn("鍵を返す", html)
         self.assertIn("鍵番号: K-402", html)
 
+    def test_my_clubs_get_page(self):
+        """所属サークル設定画面の表示テスト"""
+        # 未ログイン時はログインへリダイレクト
+        rv = self.client.get('/my_clubs')
+        self.assertEqual(rv.status_code, 302)
+        
+        # ログインする
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+            
+        rv = self.client.get('/my_clubs')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn("所属サークル設定", html)
+        self.assertIn("ボードゲームサークル", html)
+
+    def test_save_my_clubs_success(self):
+        """所属サークルの一括保存（成功系）をテスト"""
+        # 佐藤 太陽 (S2023001) は ボードゲームサークル(ID:1, 60日前登録)
+        # ログイン
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+            
+        # コンピュータ研究会(ID:2)に新規加入し、ボードゲームサークル(ID:1)から脱退する（60日前なので許可されるはず）
+        rv = self.client.post('/my_clubs/save', data={
+            'clubs': ['2'] # 1のチェックを外して2にチェック
+        }, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn("所属サークル設定を更新しました！", html)
+
+    def test_save_my_clubs_locked(self):
+        """所属サークルの一括保存（30日退部ロックによるブロック）をテスト"""
+        # 鈴木 美咲 (S2023002) は ボードゲームサークル(ID:1, 5日前登録)
+        # ログイン
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023002'
+            sess['user_name'] = '鈴木 美咲'
+            
+        # ボードゲームサークル(ID:1)のチェックを外して保存する（5日前登録なのでブロックされるはず）
+        rv = self.client.post('/my_clubs/save', data={
+            'clubs': []
+        }, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200) # リダイレクト先で200
+        html = rv.data.decode('utf-8')
+        self.assertIn("30日間はサークル「ボードゲームサークル」の登録解除ができません", html)
+
+    def test_remove_member_locked(self):
+        """詳細画面からのメンバー登録解除（30日ロック）をテスト"""
+        # ログインする
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        # ボードゲームサークル(ID:1)に登録されている「鈴木 美咲 (S2023002, 5日前)」を解除しようとすると400エラーになるはず
+        rv = self.client.post('/club/1/remove_member', data={
+            'student_id': 'S2023002'
+        })
+        self.assertEqual(rv.status_code, 400)
+        json_data = rv.get_json()
+        self.assertEqual(json_data['status'], 'error')
+        self.assertIn("サークル登録から30日間はメンバー登録の解除ができません", json_data['message'])
+
+        # ボードゲームサークル(ID:1)に登録されている「佐藤 太陽 (S2023001, 60日前)」を解除すると成功するはず
+        rv = self.client.post('/club/1/remove_member', data={
+            'student_id': 'S2023001'
+        })
+        self.assertEqual(rv.status_code, 200)
+        json_data = rv.get_json()
+        self.assertEqual(json_data['status'], 'success')
+
 
 if __name__ == '__main__':
     unittest.main()

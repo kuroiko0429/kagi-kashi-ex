@@ -293,8 +293,13 @@
             <div class="max-h-[120px] overflow-y-auto no-scrollbar border border-gray-200 rounded-xl p-2 bg-gray-50 flex flex-col gap-1">
               {% for mem in members %}
                 <div class="flex items-center justify-between px-2.5 py-1.5 bg-white rounded-lg border border-gray-200/80 text-[10px]">
-                  <span class="font-bold text-gray-700">{{ mem.name }}</span>
-                  <span class="font-mono text-gray-400">{{ mem.student_id }}</span>
+                  <div class="flex flex-col">
+                    <span class="font-bold text-gray-700">{{ mem.name }}</span>
+                    <span class="font-mono text-gray-400">{{ mem.student_id }}</span>
+                  </div>
+                  <button type="button" onclick="removeClubMember('{{ mem.student_id }}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 font-bold transition-colors cursor-pointer text-[9px]">
+                    解除
+                  </button>
                 </div>
               {% endfor %}
             </div>
@@ -442,6 +447,35 @@
     })
     .catch(err => {
       console.error(err);
+    });
+  }
+
+  function removeClubMember(studentId) {
+    if (!confirm('本当にこのメンバーのサークル登録を解除しますか？')) {
+      return;
+    }
+    const clubId = "{{ club.id }}";
+    fetch(`/club/${clubId}/remove_member`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `student_id=${encodeURIComponent(studentId)}`
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+      if (status === 200) {
+        showDetailLocalToast('success', data.message);
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      } else {
+        showDetailLocalToast('error', data.message);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showDetailLocalToast('error', '通信エラーが発生しました。');
     });
   }
 
