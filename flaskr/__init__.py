@@ -160,72 +160,167 @@ def create_app(test_config=None):
         )
 
     # 鍵を借りる処理
-    @app.route('/club/<int:club_id>/borrow', methods=('POST',))
+    @app.route('/club/<int:club_id>/borrow', methods=('GET', 'POST'))
     def borrow_key(club_id):
-        student_id = request.form['student_id'].strip().upper()
-        name = request.form['name'].strip()
-        key_number = request.form['key_number'].strip()
-
-        if not student_id or not name or not key_number:
-            flash('すべての項目を入力してください。', 'error')
-            return redirect(url_for('detail', club_id=club_id))
+        # セキュリティ：ログイン必須チェック
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('鍵を借りるにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
 
         conn = db.get_db()
+        
+        if request.method == 'POST':
+            student_id = request.form['student_id'].strip().upper()
+            name = request.form['name'].strip()
+            key_number = request.form['key_number'].strip()
 
-        # そのサークルに登録されているメンバーか確認
-        member = conn.execute(
-            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
-            (club_id, student_id)
-        ).fetchone()
+            if not student_id or not name or not key_number:
+                flash('すべての項目を入力してください。', 'error')
+                return redirect(url_for('borrow_key', club_id=club_id))
 
-        if not member:
-            flash(f'学籍番号 {student_id} はこのサークルに登録されていません。', 'error')
+            # セキュリティ：なりすまし防止（ログイン学籍番号とフォーム入力値の照合）
+            if student_id != user_id:
+                flash('ログイン中の学籍番号でのみ鍵を借用できます（なりすまし防止）。', 'error')
+                return redirect(url_for('borrow_key', club_id=club_id))
+
+            # そのサークルに登録されているメンバーか確認
+            member = conn.execute(
+                'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+                (club_id, student_id)
+            ).fetchone()
+
+            if not member:
+                flash(f'学籍番号 {student_id} はこのサークルに登録されていません。', 'error')
+                return redirect(url_for('borrow_key', club_id=club_id))
+
+            # 鍵が既に貸し出し中かチェック
+            active_borrow = conn.execute(
+                'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL',
+                (club_id,)
+            ).fetchone()
+
+            if active_borrow:
+                flash('鍵はすでに貸し出し中です。', 'error')
+                return redirect(url_for('detail', club_id=club_id))
+
+            # トランザクション処理
+            try:
+                # 貸出レコードの追加
+                conn.execute(
+                    '''
+                    INSERT INTO borrow_records (club_id, student_id, student_name, key_number) 
+                    VALUES (?, ?, ?, ?)
+                    ''',
+                    (club_id, student_id, name, key_number)
+                )
+                # サークルステータスを活動中（active）に更新
+                conn.execute(
+                    "UPDATE clubs SET status = 'active', message = '' WHERE id = ?",
+                    (club_id,)
+                )
+                conn.commit()
+                
+                # セッションに最新ユーザーを記憶
+                session['user_id'] = student_id
+                session['user_name'] = name
+                
+                flash(f'{name}さんが鍵番号 {key_number} を借りました。活動開始です！', 'success')
+            except Exception as e:
+                conn.rollback()
+                flash(f'鍵の貸し出し処理中にエラーが発生しました: {str(e)}', 'error')
+
             return redirect(url_for('detail', club_id=club_id))
 
-        # 鍵が既に貸し出し中かチェック
-        active_borrow = conn.execute(
-            'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL',
+        # GETメソッドの場合
+        club = conn.execute(
+            'SELECT * FROM clubs WHERE id = ?',
             (club_id,)
         ).fetchone()
 
-        if active_borrow:
+        if club is None:
+            flash('指定されたサークルが見つかりません。', 'error')
+            return redirect(url_for('index'))
+
+        if club['status'] != 'locked':
             flash('鍵はすでに貸し出し中です。', 'error')
             return redirect(url_for('detail', club_id=club_id))
 
-        # トランザクション処理
-        try:
-            # 貸出レコードの追加
-            conn.execute(
-                '''
-                INSERT INTO borrow_records (club_id, student_id, student_name, key_number) 
-                VALUES (?, ?, ?, ?)
-                ''',
-                (club_id, student_id, name, key_number)
-            )
-            # サークルステータスを活動中（active）に更新
-            conn.execute(
-                "UPDATE clubs SET status = 'active', message = '' WHERE id = ?",
-                (club_id,)
-            )
-            conn.commit()
-            
-            # セッションに最新ユーザーを記憶
-            session['user_id'] = student_id
-            session['user_name'] = name
-            
-            flash(f'{name}さんが鍵番号 {key_number} を借りました。活動開始です！', 'success')
-        except Exception as e:
-            conn.rollback()
-            flash(f'鍵の貸し出し処理中にエラーが発生しました: {str(e)}', 'error')
-
-        return redirect(url_for('detail', club_id=club_id))
+        club_dict = dict(club)
+        return render_template('borrow.html', club=club_dict)
 
     # 鍵を返す処理
-    @app.route('/club/<int:club_id>/return', methods=('POST',))
+    @app.route('/club/<int:club_id>/return', methods=('GET', 'POST'))
     def return_key(club_id):
+        # セキュリティ：ログイン必須チェック
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('鍵を返却するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
+
         conn = db.get_db()
 
-        # 現在の貸出レコードを取得
+        if request.method == 'POST':
+            # セキュリティ：サークルメンバーであるか認証（部外者の返却操作をブロック）
+            member = conn.execute(
+                'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+                (club_id, user_id)
+            ).fetchone()
+
+            if not member:
+                flash('このサークルの登録メンバーのみが鍵を返却できます（不正操作防止）。', 'error')
+                return redirect(url_for('detail', club_id=club_id))
+
+            # 現在の貸出レコードを取得
+            active_borrow = conn.execute(
+                'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL LIMIT 1',
+                (club_id,)
+            ).fetchone()
+
+            if not active_borrow:
+                flash('貸出中の鍵が見つかりません。', 'error')
+                return redirect(url_for('detail', club_id=club_id))
+
+            # トランザクション処理
+            try:
+                # 返却日時の記録
+                conn.execute(
+                    "UPDATE borrow_records SET returned_at = datetime('now', 'localtime') WHERE id = ?",
+                    (active_borrow['id'],)
+                )
+                # ステータスを保管中（locked）に戻す、メッセージをクリア
+                conn.execute(
+                    "UPDATE clubs SET status = 'locked', message = '' WHERE id = ?",
+                    (club_id,)
+                )
+                conn.commit()
+                flash(f'{active_borrow["student_name"]}さんが鍵を返却しました。状態を「保管中」に戻しました。', 'success')
+            except Exception as e:
+                conn.rollback()
+                flash(f'鍵の返却処理中にエラーが発生しました: {str(e)}', 'error')
+
+            return redirect(url_for('detail', club_id=club_id))
+
+        # GETメソッドの場合
+        # セキュリティ：サークルメンバーであるか認証（部外者の返却画面アクセスをブロック）
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, user_id)
+        ).fetchone()
+
+        if not member:
+            flash('このサークルの登録メンバーのみが鍵を返却できます。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        club = conn.execute(
+            'SELECT * FROM clubs WHERE id = ?',
+            (club_id,)
+        ).fetchone()
+
+        if club is None:
+            flash('指定されたサークルが見つかりません。', 'error')
+            return redirect(url_for('index'))
+
         active_borrow = conn.execute(
             'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL LIMIT 1',
             (club_id,)
@@ -235,25 +330,8 @@ def create_app(test_config=None):
             flash('貸出中の鍵が見つかりません。', 'error')
             return redirect(url_for('detail', club_id=club_id))
 
-        # トランザクション処理
-        try:
-            # 返却日時の記録
-            conn.execute(
-                "UPDATE borrow_records SET returned_at = datetime('now', 'localtime') WHERE id = ?",
-                (active_borrow['id'],)
-            )
-            # ステータスを保管中（locked）に戻す、メッセージをクリア
-            conn.execute(
-                "UPDATE clubs SET status = 'locked', message = '' WHERE id = ?",
-                (club_id,)
-            )
-            conn.commit()
-            flash(f'{active_borrow["student_name"]}さんが鍵を返却しました。状態を「保管中」に戻しました。', 'success')
-        except Exception as e:
-            conn.rollback()
-            flash(f'鍵の返却処理中にエラーが発生しました: {str(e)}', 'error')
-
-        return redirect(url_for('detail', club_id=club_id))
+        club_dict = dict(club)
+        return render_template('return.html', club=club_dict, borrow_info=active_borrow)
 
     # 状況・メッセージの更新処理
     @app.route('/club/<int:club_id>/status', methods=('POST',))

@@ -1,0 +1,98 @@
+{% extends 'layout.html' %}
+
+{% block title %}鍵を返す | Kagi-Kashi{% endblock %}
+
+{% block content %}
+<div class="flex-grow flex flex-col h-full bg-white">
+  
+  <!-- ヘッダー -->
+  <div class="px-4 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-30 select-none">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('detail', club_id=club.id) }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h2 class="text-sm font-bold text-gray-900">鍵を返す</h2>
+    </div>
+  </div>
+
+  <!-- スクロール可能な返却コンテンツ -->
+  <div class="flex-1 overflow-y-auto no-scrollbar pb-8 px-5">
+    
+    <!-- 対象サークルの簡易情報 -->
+    <div class="py-4 text-center">
+      <h1 class="text-base font-bold text-gray-900 leading-tight">{{ club.name }}</h1>
+      <p class="text-[10px] text-gray-400 mt-0.5">部室番号: {{ club.room_number }}</p>
+    </div>
+
+    <!-- 借用中カード -->
+    <div class="my-2 p-5 rounded-2xl bg-rose-50 border border-rose-100 flex flex-col items-center justify-center gap-3.5 shadow-sm relative overflow-hidden">
+      <!-- 装飾用 -->
+      <div class="absolute -right-6 -bottom-6 w-16 h-16 rounded-full bg-rose-200/40 blur-xl"></div>
+      
+      <div class="w-12 h-12 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center">
+        <i data-lucide="key-round" class="w-6 h-6 text-rose-600"></i>
+      </div>
+      
+      <div class="text-center w-full">
+        <span class="text-[10px] font-bold text-rose-700 bg-rose-100/60 px-2 py-0.5 rounded border border-rose-200/50">CURRENTLY BORROWED</span>
+        <h3 class="text-lg font-black text-rose-850 mt-1.5 font-outfit tracking-wide">鍵番号: {{ borrow_info.key_number }}</h3>
+      </div>
+
+      <!-- 借用者情報詳細 -->
+      <div class="w-full mt-1.5 p-3 rounded-xl bg-white border border-rose-100/60 flex flex-col gap-2 text-xs text-gray-700">
+        <div class="flex justify-between items-center">
+          <span class="text-[10px] text-gray-400 font-bold">借用者</span>
+          <span class="font-bold text-gray-800">{{ borrow_info.student_name }}</span>
+        </div>
+        <div class="flex justify-between items-center border-t border-gray-50 pt-2">
+          <span class="text-[10px] text-gray-400 font-bold">学籍番号</span>
+          <span class="font-mono text-gray-500">{{ borrow_info.student_id }}</span>
+        </div>
+        <div class="flex justify-between items-center border-t border-gray-50 pt-2">
+          <span class="text-[10px] text-gray-400 font-bold">借用開始</span>
+          <span class="text-gray-500 font-semibold">{{ borrow_info.borrowed_at }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 安全返却確認チェックリスト -->
+    <div class="mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col gap-3">
+      <h3 class="text-xs font-bold text-gray-800 flex items-center gap-1.5 mb-1">
+        <i data-lucide="check-square" class="w-4 h-4 text-gray-500"></i>
+        返却前の確認
+      </h3>
+
+      <div class="flex flex-col gap-2.5">
+        <label class="flex items-start gap-2.5 text-xs text-gray-600 select-none cursor-pointer">
+          <input type="checkbox" required class="mt-0.5 rounded border-gray-300 text-rose-600 focus:ring-rose-500" />
+          <span>部室の電気・エアコンを消しましたか？</span>
+        </label>
+        
+        <label class="flex items-start gap-2.5 text-xs text-gray-600 select-none cursor-pointer">
+          <input type="checkbox" required class="mt-0.5 rounded border-gray-300 text-rose-600 focus:ring-rose-500" />
+          <span>窓とドアを施錠し、物理的に閉めましたか？</span>
+        </label>
+        
+        <label class="flex items-start gap-2.5 text-xs text-gray-600 select-none cursor-pointer">
+          <input type="checkbox" required class="mt-0.5 rounded border-gray-300 text-rose-600 focus:ring-rose-500" />
+          <span>鍵をキーボックス（または指定の場所）に戻します。</span>
+        </label>
+      </div>
+
+      <form action="{{ url_for('return_key', club_id=club.id) }}" method="POST" class="mt-3.5">
+        <button type="submit" 
+                class="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white shadow-sm active:scale-95 transition-all cursor-pointer">
+          返却を確定する（保管中に戻す）
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- フッター -->
+  <div class="text-center py-4 border-t border-gray-50 bg-white">
+    <p class="text-[9px] text-gray-400">&copy; Hokkaido Information University</p>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'layout.html' %}
+
+{% block title %}鍵を借りる | Kagi-Kashi{% endblock %}
+
+{% block content %}
+<div class="flex-grow flex flex-col h-full bg-white">
+  
+  <!-- ヘッダー -->
+  <div class="px-4 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-30 select-none">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('detail', club_id=club.id) }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h2 class="text-sm font-bold text-gray-900">鍵を借りる</h2>
+    </div>
+  </div>
+
+  <!-- スクロール可能なフォームコンテンツ -->
+  <div class="flex-1 overflow-y-auto no-scrollbar pb-8 px-5">
+    
+    <!-- 対象サークルの簡易情報 -->
+    <div class="py-4 text-center">
+      <h1 class="text-base font-bold text-gray-900 leading-tight">{{ club.name }}</h1>
+      <p class="text-[10px] text-gray-400 mt-0.5">部室番号: {{ club.room_number }}</p>
+    </div>
+
+    <!-- 鍵ビジュアルカード -->
+    <div class="my-3 p-5 rounded-2xl bg-sky-50 border border-sky-100 flex flex-col items-center justify-center gap-3 shadow-sm relative overflow-hidden">
+      <!-- 装飾用の光る効果 -->
+      <div class="absolute -right-6 -bottom-6 w-16 h-16 rounded-full bg-sky-200/40 blur-xl"></div>
+      
+      <div class="w-12 h-12 rounded-xl bg-sky-100 border border-sky-200 flex items-center justify-center">
+        <i data-lucide="key" class="w-6 h-6 text-sky-600"></i>
+      </div>
+      
+      <div class="text-center">
+        <span class="text-[10px] font-bold text-sky-700 bg-sky-100/60 px-2 py-0.5 rounded border border-sky-200/50">PHYSICAL KEY</span>
+        <h3 class="text-lg font-black text-sky-850 mt-1.5 font-outfit tracking-wide">鍵番号: {{ club.key_number }}</h3>
+      </div>
+    </div>
+
+    <!-- 借用申請フォーム -->
+    <div class="mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-200/80">
+      <form action="{{ url_for('borrow_key', club_id=club.id) }}" method="POST" class="flex flex-col gap-4">
+        <!-- 学籍番号 -->
+        <div class="flex flex-col gap-0.5">
+          <label for="student_id" class="text-[10px] font-bold text-gray-400 ml-1">学籍番号</label>
+          <div class="relative flex items-center">
+            <i data-lucide="user" class="absolute left-3 w-4 h-4 text-gray-400"></i>
+            <input type="text" id="student_id" name="student_id" placeholder="S2023001" required
+                   value="{{ current_user_id or '' }}"
+                   class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase transition-all" />
+          </div>
+        </div>
+
+        <!-- 氏名 -->
+        <div class="flex flex-col gap-0.5">
+          <label for="name" class="text-[10px] font-bold text-gray-400 ml-1">借用者氏名</label>
+          <div class="relative flex items-center">
+            <i data-lucide="tag" class="absolute left-3 w-4 h-4 text-gray-400"></i>
+            <input type="text" id="name" name="name" placeholder="佐藤 太陽" required
+                   value="{{ current_user_name or '' }}"
+                   class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 transition-all" />
+          </div>
+        </div>
+
+        <!-- 隠し鍵番号 -->
+        <input type="hidden" name="key_number" value="{{ club.key_number }}" />
+
+        <div class="p-3 bg-white rounded-xl border border-gray-200/80 flex items-start gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5"></i>
+          <p class="text-[9px] text-gray-400 leading-normal">
+            学籍番号が当サークルに登録されているメンバーのみ鍵の手続きを行えます。未登録の場合は、詳細画面の「引継ぎ設定」よりご自身の学籍番号と氏名を追加登録してください。
+          </p>
+        </div>
+
+        <!-- 借用確定ボタン -->
+        <button type="submit" 
+                class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white shadow-sm active:scale-95 transition-all cursor-pointer">
+          鍵を借りる（活動開始）
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- フッター -->
+  <div class="text-center py-4 border-t border-gray-50 bg-white">
+    <p class="text-[9px] text-gray-400">&copy; Hokkaido Information University</p>
+  </div>
+
+</div>
+{% endblock %}

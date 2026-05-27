@@ -137,6 +137,21 @@
                 {% endif %}
               {% endif %}
             </p>
+
+            <!-- クイックアクションボタン (カード詳細リンクz-10より上のz-20に配置してクリック可能にする) -->
+            <div class="mt-1.5 flex gap-2 z-20 relative">
+              {% if key.status == 'locked' %}
+                <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                   class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                  借りる
+                </a>
+              {% else %}
+                <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                   class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                  返す
+                </a>
+              {% endif %}
+            </div>
           </div>
 
           <!-- 右側：お気に入りスター (Figmaモック準拠) -->

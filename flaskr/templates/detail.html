@@ -89,45 +89,24 @@
     <div id="content-lend" class="mt-5 flex flex-col gap-4">
       
       {% if club.status == 'locked' %}
-        <!-- 鍵を借りるフォーム -->
-        <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200/80">
-          <h3 class="text-xs font-bold text-gray-800 mb-3 flex items-center gap-1.5">
-            <i data-lucide="key" class="w-4 h-4 text-gray-500"></i>
-            鍵を借りる
-          </h3>
-          
-          <form action="{{ url_for('borrow_key', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">学籍番号</label>
-              <input type="text" name="student_id" placeholder="S2023001" required
-                     value="{{ current_user_id or '' }}"
-                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase" />
-            </div>
-            
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">氏名</label>
-              <input type="text" name="name" placeholder="佐藤 太陽" required
-                     value="{{ current_user_name or '' }}"
-                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-            </div>
-
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">鍵番号</label>
-              <input type="text" name="key_number" value="{{ club.key_number }}" readonly required
-                     class="w-full px-3 py-2 rounded-xl bg-gray-100 border border-gray-200 text-xs text-gray-400 cursor-not-allowed select-none" />
-            </div>
-
-            <p class="text-[9px] text-gray-400 leading-normal mt-0.5">
-              ※ 学籍番号がこのサークルに登録されているメンバーのみ鍵を借りることができます。
+        <!-- 鍵を借りる案内 -->
+        <div class="p-5 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col items-center justify-center text-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+            <i data-lucide="key" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-gray-800">鍵は保管中（施錠）です</h4>
+            <p class="text-[9px] text-gray-400 mt-1 leading-normal">
+              サークルメンバーであれば、鍵を借りて活動を開始できます。
             </p>
-
-            <button type="submit" class="w-full py-2.5 mt-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white shadow-sm active:scale-98 transition-all cursor-pointer">
-              借りる
-            </button>
-          </form>
+          </div>
+          <a href="{{ url_for('borrow_key', club_id=club.id) }}" 
+             class="w-full py-2.5 mt-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white text-center shadow-sm active:scale-98 transition-all cursor-pointer">
+            鍵を借りる手続きへ進む
+          </a>
         </div>
       {% else %}
-        <!-- 鍵が貸し出し中 -->
+        <!-- 鍵が貸し出し中案内 -->
         <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col gap-3">
           <h3 class="text-xs font-bold text-gray-800 flex items-center gap-1.5">
             <i data-lucide="info" class="w-4 h-4 text-gray-500"></i>
@@ -149,11 +128,10 @@
             </div>
           </div>
 
-          <form action="{{ url_for('return_key', club_id=club.id) }}" method="POST" class="mt-1">
-            <button type="submit" class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white shadow-sm active:scale-98 transition-all cursor-pointer">
-              返却する
-            </button>
-          </form>
+          <a href="{{ url_for('return_key', club_id=club.id) }}" 
+             class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white text-center shadow-sm active:scale-98 transition-all cursor-pointer mt-1">
+            鍵を返却する手続きへ進む
+          </a>
         </div>
       {% endif %}
 

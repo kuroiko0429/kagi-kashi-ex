@@ -67,6 +67,11 @@ class KagiKashiTestCase(unittest.TestCase):
     def test_borrow_and_return_key(self):
         """鍵の借り出しと返却フローをテスト"""
         # 1. ボードゲームサークル(ID:1)のメンバー「佐藤 太陽 (S2023001)」で借りる
+        # セキュリティ：借用にはログインが必要
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
         rv = self.client.post('/club/1/borrow', data=dict(
             student_id='S2023001',
             name='佐藤 太陽',
@@ -90,6 +95,7 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertIn("登録されていません", html)
 
         # 3. 鍵を返却する
+        # 現在ログイン中の S2023001 はボードゲームのメンバーなので返却可能
         rv = self.client.post('/club/1/return', follow_redirects=True)
         self.assertEqual(rv.status_code, 200)
         html = rv.data.decode('utf-8')
@@ -144,6 +150,34 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         json_data = rv.get_json()
         self.assertEqual(json_data['is_favorite'], False)
+
+    def test_borrow_get_page(self):
+        """鍵借用専用画面の表示テスト"""
+        # セキュリティ：ログインが必要
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        # ボードゲームサークル (ID: 1) は初期状態で locked (保管中)
+        rv = self.client.get('/club/1/borrow')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn("鍵を借りる", html)
+        self.assertIn("鍵番号: K-401", html)
+
+    def test_return_get_page(self):
+        """鍵返却専用画面の表示テスト"""
+        # セキュリティ：該当サークルのメンバーでのログインが必要
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023003'
+            sess['user_name'] = '高橋 蓮'
+
+        # コンピュータ研究会 (ID: 2) は初期状態で active (貸出中)
+        rv = self.client.get('/club/2/return')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn("鍵を返す", html)
+        self.assertIn("鍵番号: K-402", html)
 
 
 if __name__ == '__main__':
