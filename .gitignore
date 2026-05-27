@@ -1,2 +1,32 @@
+# Antigravity CLI config
 .antigravitycli
-flaskr/__pycache__/**
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Flask instance folder (contains sqlite database flaskr.sqlite)
+instance/
+*.sqlite
+*.db
+
+# Python compiled cache (Global)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

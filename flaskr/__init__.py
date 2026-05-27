@@ -1,6 +1,6 @@
 import os
-
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from . import db
 
 
 def create_app(test_config=None):
@@ -22,24 +22,372 @@ def create_app(test_config=None):
     # インスタンスフォルダの生成
     os.makedirs(app.instance_path, exist_ok=True)
 
-    # ページの表示
+    # データベースの初期化登録
+    db.init_app(app)
+
+    # コンテキストプロセッサー: 全ページで現在ログイン中のユーザー情報やセッションを利用可能にする
+    @app.context_processor
+    def inject_user():
+        return {
+            'current_user_id': session.get('user_id'),
+            'current_user_name': session.get('user_name'),
+        }
+
+    # ログインページ
+    @app.route('/login', methods=('GET', 'POST'))
+    def login():
+        if request.method == 'POST':
+            student_id = request.form['student_id'].strip().upper()
+            name = request.form['name'].strip()
+
+            if not student_id or not name:
+                flash('学籍番号と氏名を入力してください。', 'error')
+                return render_template('login.html')
+
+            # セッションにユーザー情報を保存
+            session['user_id'] = student_id
+            session['user_name'] = name
+
+            flash(f'{name}さん、ログインしました。', 'success')
+            
+            # 元のページに戻るか、一覧ページへリダイレクト
+            next_url = request.args.get('next')
+            return redirect(next_url or url_for('index'))
+
+        return render_template('login.html')
+
+    # ログアウトページ
+    @app.route('/logout')
+    def logout():
+        session.clear()
+        flash('ログアウトしました。', 'success')
+        return redirect(url_for('index'))
+
+    # メイン一覧ページ（Figmaモック準拠）
     @app.route('/')
-    def hello():
-        keys = [
-            {'id':24, 'name':"ボードゲーム", 'state':0, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':0, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':0, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':0, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':0, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':0, 'comment':""},
-            {'id':24, 'name':"ボードゲーム", 'state':1, 'comment':""}
-        ]
-        return render_template('index.html', keys=keys)
+    def index():
+        conn = db.get_db()
+        user_id = session.get('user_id')
+
+        # お気に入り情報を含めてサークル一覧を取得
+        if user_id:
+            clubs = conn.execute(
+                '''
+                SELECT c.*, 
+                       (SELECT COUNT(*) FROM favorites f WHERE f.club_id = c.id AND f.student_id = ?) as is_favorite,
+                       (SELECT student_name FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrower_name
+                FROM clubs c
+                ''',
+                (user_id,)
+            ).fetchall()
+        else:
+            clubs = conn.execute(
+                '''
+                SELECT c.*, 
+                       0 as is_favorite,
+                       (SELECT student_name FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrower_name
+                FROM clubs c
+                '''
+            ).fetchall()
+
+        # お気に入りのクラブが上に来るように並び替えてPythonリストに変換
+        clubs_list = []
+        for club in clubs:
+            c_dict = dict(club)
+            # 現在のログインユーザーがお気に入りに入れているかを真偽値にする
+            c_dict['is_favorite'] = bool(c_dict['is_favorite'])
+            clubs_list.append(c_dict)
+
+        # お気に入り登録されているものを最上部にソート
+        clubs_list.sort(key=lambda x: x['is_favorite'], reverse=True)
+
+        return render_template('index.html', keys=clubs_list)
+
+    # 詳細ページ
+    @app.route('/club/<int:club_id>')
+    def detail(club_id):
+        conn = db.get_db()
+        user_id = session.get('user_id')
+
+        # サークル情報の取得
+        if user_id:
+            club = conn.execute(
+                '''
+                SELECT c.*, 
+                       (SELECT COUNT(*) FROM favorites f WHERE f.club_id = c.id AND f.student_id = ?) as is_favorite
+                FROM clubs c
+                WHERE c.id = ?
+                ''',
+                (user_id, club_id)
+            ).fetchone()
+        else:
+            club = conn.execute(
+                'SELECT c.*, 0 as is_favorite FROM clubs c WHERE c.id = ?',
+                (club_id,)
+            ).fetchone()
+
+        if club is None:
+            flash('指定されたサークルが見つかりません。', 'error')
+            return redirect(url_for('index'))
+
+        # 現在の貸出情報を取得 (returned_at が NULL)
+        borrow_info = conn.execute(
+            'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL LIMIT 1',
+            (club_id,)
+        ).fetchone()
+
+        # 活動報告書一覧の取得 (新しい順)
+        reports = conn.execute(
+            'SELECT * FROM activity_reports WHERE club_id = ? ORDER BY created_at DESC',
+            (club_id,)
+        ).fetchall()
+
+        # 登録メンバー一覧の取得（引継ぎ用）
+        members = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? ORDER BY student_id ASC',
+            (club_id,)
+        ).fetchall()
+
+        club_dict = dict(club)
+        club_dict['is_favorite'] = bool(club_dict['is_favorite'])
+
+        return render_template(
+            'detail.html',
+            club=club_dict,
+            borrow_info=borrow_info,
+            reports=reports,
+            members=members
+        )
+
+    # 鍵を借りる処理
+    @app.route('/club/<int:club_id>/borrow', methods=('POST',))
+    def borrow_key(club_id):
+        student_id = request.form['student_id'].strip().upper()
+        name = request.form['name'].strip()
+        key_number = request.form['key_number'].strip()
+
+        if not student_id or not name or not key_number:
+            flash('すべての項目を入力してください。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        conn = db.get_db()
+
+        # そのサークルに登録されているメンバーか確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, student_id)
+        ).fetchone()
+
+        if not member:
+            flash(f'学籍番号 {student_id} はこのサークルに登録されていません。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        # 鍵が既に貸し出し中かチェック
+        active_borrow = conn.execute(
+            'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL',
+            (club_id,)
+        ).fetchone()
+
+        if active_borrow:
+            flash('鍵はすでに貸し出し中です。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        # トランザクション処理
+        try:
+            # 貸出レコードの追加
+            conn.execute(
+                '''
+                INSERT INTO borrow_records (club_id, student_id, student_name, key_number) 
+                VALUES (?, ?, ?, ?)
+                ''',
+                (club_id, student_id, name, key_number)
+            )
+            # サークルステータスを活動中（active）に更新
+            conn.execute(
+                "UPDATE clubs SET status = 'active', message = '' WHERE id = ?",
+                (club_id,)
+            )
+            conn.commit()
+            
+            # セッションに最新ユーザーを記憶
+            session['user_id'] = student_id
+            session['user_name'] = name
+            
+            flash(f'{name}さんが鍵番号 {key_number} を借りました。活動開始です！', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'鍵の貸し出し処理中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
+
+    # 鍵を返す処理
+    @app.route('/club/<int:club_id>/return', methods=('POST',))
+    def return_key(club_id):
+        conn = db.get_db()
+
+        # 現在の貸出レコードを取得
+        active_borrow = conn.execute(
+            'SELECT * FROM borrow_records WHERE club_id = ? AND returned_at IS NULL LIMIT 1',
+            (club_id,)
+        ).fetchone()
+
+        if not active_borrow:
+            flash('貸出中の鍵が見つかりません。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        # トランザクション処理
+        try:
+            # 返却日時の記録
+            conn.execute(
+                "UPDATE borrow_records SET returned_at = datetime('now', 'localtime') WHERE id = ?",
+                (active_borrow['id'],)
+            )
+            # ステータスを保管中（locked）に戻す、メッセージをクリア
+            conn.execute(
+                "UPDATE clubs SET status = 'locked', message = '' WHERE id = ?",
+                (club_id,)
+            )
+            conn.commit()
+            flash(f'{active_borrow["student_name"]}さんが鍵を返却しました。状態を「保管中」に戻しました。', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'鍵の返却処理中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
+
+    # 状況・メッセージの更新処理
+    @app.route('/club/<int:club_id>/status', methods=('POST',))
+    def update_status(club_id):
+        status = request.form.get('status')
+        message = request.form.get('message', '').strip()
+
+        if status not in ('active', 'temp_locked'):
+            flash('無効なステータスです。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        conn = db.get_db()
+        try:
+            conn.execute(
+                "UPDATE clubs SET status = ?, message = ? WHERE id = ?",
+                (status, message, club_id)
+            )
+            conn.commit()
+            
+            status_jp = "活動中" if status == "active" else "一時施錠中"
+            flash(f'状況を「{status_jp}」に更新しました。', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'状況更新中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
+
+    # 活動報告書の提出処理
+    @app.route('/club/<int:club_id>/report', methods=('POST',))
+    def submit_report(club_id):
+        reporter_name = request.form['reporter_name'].strip()
+        student_id = request.form['student_id'].strip().upper()
+        report_date = request.form['report_date'].strip()
+        description = request.form['description'].strip()
+
+        if not reporter_name or not student_id or not report_date or not description:
+            flash('すべての項目を入力してください。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        conn = db.get_db()
+
+        # サークルメンバーか確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, student_id)
+        ).fetchone()
+
+        if not member:
+            flash(f'学籍番号 {student_id} はこのサークルに登録されていないため、報告書を提出できません。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        try:
+            conn.execute(
+                '''
+                INSERT INTO activity_reports (club_id, reporter_name, student_id, report_date, description) 
+                VALUES (?, ?, ?, ?, ?)
+                ''',
+                (club_id, reporter_name, student_id, report_date, description)
+            )
+            conn.commit()
+            
+            # セッションに最新ユーザーを記憶
+            session['user_id'] = student_id
+            session['user_name'] = reporter_name
+            
+            flash('活動報告書を提出しました！', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'活動報告提出中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
+
+    # お気に入りトグルAPI（非同期AJAX用）
+    @app.route('/club/<int:club_id>/favorite', methods=('POST',))
+    def toggle_favorite(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'お気に入りを登録するにはログインが必要です。'}), 401
+
+        conn = db.get_db()
+        # 存在確認
+        fav = conn.execute(
+            'SELECT * FROM favorites WHERE student_id = ? AND club_id = ?',
+            (user_id, club_id)
+        ).fetchone()
+
+        try:
+            if fav:
+                conn.execute(
+                    'DELETE FROM favorites WHERE student_id = ? AND club_id = ?',
+                    (user_id, club_id)
+                )
+                conn.commit()
+                return jsonify({'status': 'success', 'is_favorite': False, 'message': 'お気に入りを解除しました。'})
+            else:
+                conn.execute(
+                    'INSERT INTO favorites (student_id, club_id) VALUES (?, ?)',
+                    (user_id, club_id)
+                )
+                conn.commit()
+                return jsonify({'status': 'success', 'is_favorite': True, 'message': 'お気に入りに登録しました！'})
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    # メンバー登録追加処理（引継ぎ設定用）
+    @app.route('/club/<int:club_id>/add_member', methods=('POST',))
+    def add_member(club_id):
+        student_id = request.form.get('student_id', '').strip().upper()
+        name = request.form.get('name', '').strip()
+
+        if not student_id or not name:
+            return jsonify({'status': 'error', 'message': 'すべての項目を入力してください。'}), 400
+
+        conn = db.get_db()
+        
+        # すでに登録されているか確認
+        exists = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, student_id)
+        ).fetchone()
+
+        if exists:
+            return jsonify({'status': 'error', 'message': 'このメンバーはすでに登録されています。'}), 400
+
+        try:
+            conn.execute(
+                'INSERT INTO members (club_id, student_id, name) VALUES (?, ?, ?)',
+                (club_id, student_id, name)
+            )
+            conn.commit()
+            return jsonify({'status': 'success', 'message': f'{name}さんをサークルメンバーとして登録しました！'})
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
 
     return app

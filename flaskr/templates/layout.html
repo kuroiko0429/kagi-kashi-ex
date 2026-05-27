@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja" class="h-full bg-gray-100 text-gray-900">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>{% block title %}部室鍵管理システム Kagi-Kashi{% endblock %}</title>
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      body {
+        font-family: 'Noto Sans JP', 'Outfit', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body class="h-full bg-gray-100 overflow-x-hidden">
+    
+    <!-- モバイル幅に最適化されたシンプルな中央配置コンテナ -->
+    <div class="w-full max-w-md mx-auto min-h-screen bg-white shadow-md border-x border-gray-200 flex flex-col relative overflow-hidden">
+      
+      <!-- メインコンテンツ表示エリア -->
+      <div class="flex-1 flex flex-col bg-white">
+        {% block content %}{% endblock %}
+      </div>
+
+    </div>
+
+    <!-- トースト通知システム（シンプルなライトスタイル） -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-[90%] max-w-[340px] pointer-events-none">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="toast-item flex items-center gap-2.5 px-4 py-3 rounded-xl border bg-white shadow-lg translate-y-[-10px] opacity-0 transition-all duration-300 pointer-events-auto
+              {% if category == 'success' %}
+                border-emerald-200 text-emerald-800 bg-emerald-50
+              {% elif category == 'error' %}
+                border-rose-200 text-rose-800 bg-rose-50
+              {% else %}
+                border-gray-200 text-gray-700 bg-gray-50
+              {% endif %}">
+              <i data-lucide="{% if category == 'success' %}check-circle-2{% elif category == 'error' %}alert-circle{% else %}info{% endif %}" 
+                 class="w-4.5 h-4.5 flex-shrink-0 {% if category == 'success' %}text-emerald-500{% elif category == 'error' %}text-rose-500{% else %}text-gray-500{% endif %}"></i>
+              <p class="text-xs font-medium">{{ message }}</p>
+              <button onclick="dismissToast(this.parentElement)" class="ml-auto text-gray-400 hover:text-gray-600 transition-colors p-0.5">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- システム通知ドロワー（シンプルなライトスタイル） -->
+    <div id="notification-drawer" class="fixed inset-0 bg-black/40 z-50 translate-x-full transition-transform duration-300 flex justify-end">
+      <div class="w-[80%] max-w-[320px] h-full bg-white flex flex-col shadow-xl">
+        <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="bell" class="w-4 h-4 text-gray-500"></i>
+            <h3 class="font-bold text-sm text-gray-900">通知履歴</h3>
+          </div>
+          <button onclick="toggleDrawer(false)" class="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 no-scrollbar" id="notification-logs">
+          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[9px] font-bold text-emerald-600 px-1 py-0.5 rounded bg-emerald-50 border border-emerald-100">返却</span>
+              <span class="text-[9px] text-gray-400">10分前</span>
+            </div>
+            <p class="text-xs text-gray-600"><span class="font-bold text-gray-800">佐藤 太陽</span> さんが写真部の鍵を返却しました。</p>
+          </div>
+          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[9px] font-bold text-indigo-600 px-1 py-0.5 rounded bg-indigo-50 border border-indigo-100">借用</span>
+              <span class="text-[9px] text-gray-400">1時間前</span>
+            </div>
+            <p class="text-xs text-gray-600"><span class="font-bold text-gray-800">高橋 蓮</span> さんがコンピュータ研究会の鍵（K-402）を借りました。</p>
+          </div>
+          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[9px] font-bold text-amber-600 px-1 py-0.5 rounded bg-amber-50 border border-amber-100">一時施錠</span>
+              <span class="text-[9px] text-gray-400">2時間前</span>
+            </div>
+            <p class="text-xs text-gray-600"><span class="font-bold text-gray-800">中村 陽翔</span> さんが一時施錠しました。<br><span class="text-gray-400 italic">「機材搬入のため15分ほど施錠します」</span></p>
+          </div>
+        </div>
+        
+        <div class="p-4 bg-gray-50 border-t border-gray-200 text-center">
+          <p class="text-[9px] text-gray-400">&copy; 2026 北海道情報大学</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- JavaScript 処理 -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        const toasts = document.querySelectorAll('.toast-item');
+        toasts.forEach((toast, idx) => {
+          setTimeout(() => {
+            toast.style.transform = 'translateY(0)';
+            toast.style.opacity = '1';
+          }, idx * 150 + 50);
+
+          setTimeout(() => {
+            dismissToast(toast);
+          }, 4000);
+        });
+      });
+
+      function dismissToast(toast) {
+        if (!toast) return;
+        toast.style.transform = 'translateY(-10px)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }
+
+      function toggleDrawer(show) {
+        const drawer = document.getElementById('notification-drawer');
+        if (show) {
+          drawer.classList.remove('translate-x-full');
+        } else {
+          drawer.classList.add('translate-x-full');
+        }
+      }
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

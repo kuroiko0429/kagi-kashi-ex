@@ -1,0 +1,515 @@
+{% extends 'layout.html' %}
+
+{% block title %}{{ club.name }} | Kagi-Kashi{% endblock %}
+
+{% block content %}
+<div class="flex-grow flex flex-col h-full bg-white">
+  
+  <!-- 上部ヘッダー -->
+  <div class="px-4 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-30 select-none">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('index') }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h2 class="text-sm font-bold text-gray-900">詳細情報</h2>
+    </div>
+    
+    <!-- お気に入りスター -->
+    <button onclick="toggleFavDetail(this, {{ club.id }})" 
+            class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-amber-500 cursor-pointer">
+      <i data-lucide="star" class="w-5 h-5 {% if club.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
+    </button>
+  </div>
+
+  <!-- スクロール可能なメインコンテンツ -->
+  <div class="flex-1 overflow-y-auto no-scrollbar pb-8 px-4">
+    
+    <!-- サークルヘッダーブロック -->
+    <div class="py-5 border-b border-gray-100 flex flex-col items-center text-center">
+      <!-- シンプルな水色アイコン枠 (Figmaの再現) -->
+      <div class="w-16 h-16 rounded-xl bg-sky-300 flex items-center justify-center font-bold text-sky-800 text-xs mb-3 shadow-sm select-none">
+        アイコン
+      </div>
+
+      <!-- タイトル & 部屋番号 -->
+      <h1 class="text-base font-bold text-gray-900 leading-tight">{{ club.name }}</h1>
+      <div class="flex items-center gap-1.5 mt-1.5">
+        <span class="px-1.5 py-0.5 border border-gray-300 rounded text-[9px] font-bold text-gray-500 bg-gray-50">
+          部屋番号: {{ club.room_number }}
+        </span>
+        <span class="px-1.5 py-0.5 border border-gray-300 rounded text-[9px] font-bold text-gray-500 bg-gray-50">
+          鍵番号: {{ club.key_number }}
+        </span>
+      </div>
+
+      <!-- 現在のステータス表示 -->
+      <div class="mt-3">
+        {% if club.status == 'active' %}
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold text-[10px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            現在活動中
+          </div>
+        {% elif club.status == 'temp_locked' %}
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-800 font-bold text-[10px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            現在一時施錠中
+          </div>
+        {% else %}
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-500 font-bold text-[10px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+            現在保管中 (施錠)
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- 一時施錠メッセージ -->
+      {% if club.message %}
+        <div class="mt-3 w-full max-w-[280px] p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-[10px] text-amber-800 leading-normal italic text-center">
+          &ldquo;{{ club.message }}&rdquo;
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- 3つの機能切替タブボタン -->
+    <div class="mt-4">
+      <div class="flex bg-gray-100 border border-gray-200 rounded-xl p-0.5 select-none text-[10px] font-bold text-gray-500">
+        <button onclick="switchDetailTab('lend')" id="dtab-lend" class="flex-1 py-2 rounded-lg text-center transition-all bg-white text-gray-900 shadow-sm cursor-pointer">
+          鍵貸出・返却
+        </button>
+        <button onclick="switchDetailTab('status')" id="dtab-status" class="flex-1 py-2 rounded-lg text-center hover:text-gray-900 transition-all cursor-pointer">
+          状況変更
+        </button>
+        <button onclick="switchDetailTab('reports')" id="dtab-reports" class="flex-1 py-2 rounded-lg text-center hover:text-gray-900 transition-all cursor-pointer">
+          活動報告
+        </button>
+      </div>
+    </div>
+
+    <!-- タブコンテンツ 1: 鍵貸出・返却 -->
+    <div id="content-lend" class="mt-5 flex flex-col gap-4">
+      
+      {% if club.status == 'locked' %}
+        <!-- 鍵を借りるフォーム -->
+        <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200/80">
+          <h3 class="text-xs font-bold text-gray-800 mb-3 flex items-center gap-1.5">
+            <i data-lucide="key" class="w-4 h-4 text-gray-500"></i>
+            鍵を借りる
+          </h3>
+          
+          <form action="{{ url_for('borrow_key', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">学籍番号</label>
+              <input type="text" name="student_id" placeholder="S2023001" required
+                     value="{{ current_user_id or '' }}"
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase" />
+            </div>
+            
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">氏名</label>
+              <input type="text" name="name" placeholder="佐藤 太陽" required
+                     value="{{ current_user_name or '' }}"
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">鍵番号</label>
+              <input type="text" name="key_number" value="{{ club.key_number }}" readonly required
+                     class="w-full px-3 py-2 rounded-xl bg-gray-100 border border-gray-200 text-xs text-gray-400 cursor-not-allowed select-none" />
+            </div>
+
+            <p class="text-[9px] text-gray-400 leading-normal mt-0.5">
+              ※ 学籍番号がこのサークルに登録されているメンバーのみ鍵を借りることができます。
+            </p>
+
+            <button type="submit" class="w-full py-2.5 mt-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white shadow-sm active:scale-98 transition-all cursor-pointer">
+              借りる
+            </button>
+          </form>
+        </div>
+      {% else %}
+        <!-- 鍵が貸し出し中 -->
+        <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col gap-3">
+          <h3 class="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+            <i data-lucide="info" class="w-4 h-4 text-gray-500"></i>
+            現在の借用状況
+          </h3>
+
+          <div class="p-3.5 rounded-xl bg-white border border-gray-200 flex flex-col gap-2.5">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-gray-400">借用者</span>
+              <span class="font-bold text-gray-800">{{ borrow_info.student_name }} ({{ borrow_info.student_id }})</span>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-gray-400">鍵番号</span>
+              <span class="font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{{ borrow_info.key_number }}</span>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-gray-400">借用開始</span>
+              <span class="text-gray-600">{{ borrow_info.borrowed_at }}</span>
+            </div>
+          </div>
+
+          <form action="{{ url_for('return_key', club_id=club.id) }}" method="POST" class="mt-1">
+            <button type="submit" class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white shadow-sm active:scale-98 transition-all cursor-pointer">
+              返却する
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+    </div>
+
+    <!-- タブコンテンツ 2: 状況変更 -->
+    <div id="content-status" class="mt-5 hidden">
+      {% if club.status == 'locked' %}
+        <div class="p-6 text-center rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center gap-2">
+          <i data-lucide="lock" class="w-5 h-5 text-gray-300"></i>
+          <div>
+            <h4 class="text-xs font-bold text-gray-500">操作できません</h4>
+            <p class="text-[9px] text-gray-400 mt-1 leading-normal">
+              鍵を借りて活動を開始すると、状況を変更できるようになります。
+            </p>
+          </div>
+        </div>
+      {% else %}
+        <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200">
+          <h3 class="text-xs font-bold text-gray-800 mb-3 flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-gray-500"></i>
+            活動状況の変更
+          </h3>
+
+          <form action="{{ url_for('update_status', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
+            <div class="grid grid-cols-2 gap-2.5">
+              <label class="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs font-semibold
+                {% if club.status == 'active' %}
+                  bg-white border-emerald-500 text-emerald-700 shadow-sm
+                {% else %}
+                  bg-white border-gray-200 text-gray-400 hover:text-gray-600
+                {% endif %}" onclick="toggleMsgField(false)">
+                <input type="radio" name="status" value="active" required class="hidden" {% if club.status == 'active' %}checked{% endif %} />
+                <i data-lucide="play-circle" class="w-5 h-5"></i>
+                <span>活動中</span>
+              </label>
+
+              <label class="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs font-semibold
+                {% if club.status == 'temp_locked' %}
+                  bg-white border-amber-500 text-amber-700 shadow-sm
+                {% else %}
+                  bg-white border-gray-200 text-gray-400 hover:text-gray-600
+                {% endif %}" onclick="toggleMsgField(true)">
+                <input type="radio" name="status" value="temp_locked" required class="hidden" {% if club.status == 'temp_locked' %}checked{% endif %} />
+                <i data-lucide="pause-circle" class="w-5 h-5"></i>
+                <span>一時施錠中</span>
+              </label>
+            </div>
+
+            <!-- 一時施錠メッセージ -->
+            <div id="msg-field-wrapper" class="{% if club.status != 'temp_locked' %}hidden{% endif %} flex flex-col gap-1 mt-1 transition-all">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">一時施錠メッセージ</label>
+              <textarea name="message" placeholder="例：ご飯に出かけています。13:30に戻ります。" rows="2"
+                        class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none">{{ club.message or '' }}</textarea>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 mt-1.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all cursor-pointer">
+              状況を保存する
+            </button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- タブコンテンツ 3: 活動報告 -->
+    <div id="content-reports" class="mt-5 hidden flex flex-col gap-4">
+      
+      <!-- 報告書投稿フォーム (アコーディオン) -->
+      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
+        <button onclick="toggleAccordion('report-form-panel')" class="w-full px-4 py-3 flex items-center justify-between text-gray-700 hover:text-gray-900 cursor-pointer select-none">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-xs font-bold">新規活動報告書を作成</span>
+          </div>
+          <i data-lucide="chevron-down" id="accordion-arrow" class="w-4 h-4 transition-transform"></i>
+        </button>
+
+        <div id="report-form-panel" class="hidden px-4 pb-4 pt-0.5 border-t border-gray-200/60 flex flex-col gap-3">
+          <form action="{{ url_for('submit_report', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者学籍番号</label>
+              <input type="text" name="student_id" placeholder="S2023001" required
+                     value="{{ current_user_id or '' }}"
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者氏名</label>
+              <input type="text" name="reporter_name" placeholder="佐藤 太陽" required
+                     value="{{ current_user_name or '' }}"
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">活動日</label>
+              <input type="date" name="report_date" id="report_date_input" required
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">活動内容</label>
+              <textarea name="description" placeholder="活動した内容をご記入ください。" rows="3" required
+                        class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"></textarea>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all mt-1 cursor-pointer">
+              報告書を提出する
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- 活動報告タイムライン -->
+      <div class="flex flex-col gap-3 mt-1">
+        <h3 class="text-xs font-bold text-gray-700 ml-1">活動履歴</h3>
+        
+        {% if reports %}
+          <div class="relative pl-5 border-l border-gray-200 flex flex-col gap-4 ml-1.5 pt-1">
+            {% for report in reports %}
+              <div class="relative">
+                <span class="absolute -left-[24px] top-1.5 w-2 h-2 rounded-full bg-gray-300 border-2 border-white"></span>
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs flex flex-col gap-1.5">
+                  <div class="flex justify-between items-center border-b border-gray-200/60 pb-1.5">
+                    <span class="font-bold text-gray-800">{{ report.reporter_name }} ({{ report.student_id }})</span>
+                    <span class="text-[9px] text-gray-400 font-mono">{{ report.report_date }}</span>
+                  </div>
+                  <p class="text-gray-600 leading-normal break-all">{{ report.description }}</p>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="p-6 text-center rounded-2xl bg-gray-50 border border-gray-200 text-[10px] text-gray-400">
+            活動報告はありません。
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- 引継ぎ設定・メンバーリスト -->
+    <div class="mt-6 border-t border-gray-100 pt-5">
+      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
+        <button onclick="toggleAccordion('settings-panel')" class="w-full px-4 py-3 flex items-center justify-between text-gray-600 hover:text-gray-800 cursor-pointer select-none">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="settings" class="w-4 h-4 text-gray-400"></i>
+            <span class="text-xs font-bold">引継ぎ設定（メンバー登録）</span>
+          </div>
+          <i data-lucide="chevron-down" id="settings-arrow" class="w-4 h-4 transition-transform"></i>
+        </button>
+
+        <div id="settings-panel" class="hidden px-4 pb-4 pt-0.5 border-t border-gray-200/60 flex flex-col gap-3 bg-white">
+          <p class="text-[9px] text-gray-400 leading-normal">
+            サークル所属メンバーの管理用です。登録学生のみが鍵の借用と報告書の作成を行えます。
+          </p>
+
+          <div class="flex flex-col gap-1.5">
+            <h4 class="text-[9px] font-bold text-gray-400 ml-1">登録済みのメンバー（{{ members|length }}名）</h4>
+            <div class="max-h-[120px] overflow-y-auto no-scrollbar border border-gray-200 rounded-xl p-2 bg-gray-50 flex flex-col gap-1">
+              {% for mem in members %}
+                <div class="flex items-center justify-between px-2.5 py-1.5 bg-white rounded-lg border border-gray-200/80 text-[10px]">
+                  <span class="font-bold text-gray-700">{{ mem.name }}</span>
+                  <span class="font-mono text-gray-400">{{ mem.student_id }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <form action="#" id="add-member-form" onsubmit="addClubMember(event)" class="border-t border-gray-100 pt-3 flex flex-col gap-2">
+            <h4 class="text-[9px] font-bold text-gray-400 ml-1">メンバーの追加登録</h4>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="new_mem_id" placeholder="学籍番号" required
+                     class="w-full px-2.5 py-2 rounded-xl bg-white border border-gray-300 text-[10px] uppercase focus:outline-none focus:ring-1 focus:ring-gray-400" />
+              <input type="text" id="new_mem_name" placeholder="氏名" required
+                     class="w-full px-2.5 py-2 rounded-xl bg-white border border-gray-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+            <button type="submit" class="w-full py-2 rounded-xl bg-gray-200 hover:bg-gray-300 font-bold text-[9px] text-gray-600 hover:text-gray-800 transition-colors cursor-pointer">
+              登録する
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('report_date_input');
+    if (dateInput) {
+      dateInput.value = today;
+    }
+  });
+
+  function switchDetailTab(tab) {
+    document.getElementById('content-lend').classList.add('hidden');
+    document.getElementById('content-status').classList.add('hidden');
+    document.getElementById('content-reports').classList.add('hidden');
+
+    const btnLend = document.getElementById('dtab-lend');
+    const btnStatus = document.getElementById('dtab-status');
+    const btnReports = document.getElementById('dtab-reports');
+
+    btnLend.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
+    btnStatus.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
+    btnReports.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
+
+    if (tab === 'lend') {
+      document.getElementById('content-lend').classList.remove('hidden');
+      btnLend.className = "flex-1 py-2 rounded-lg text-center bg-white text-gray-900 shadow-sm border border-gray-200/50 cursor-pointer";
+    } else if (tab === 'status') {
+      document.getElementById('content-status').classList.remove('hidden');
+      btnStatus.className = "flex-1 py-2 rounded-lg text-center bg-white text-gray-900 shadow-sm border border-gray-200/50 cursor-pointer";
+    } else if (tab === 'reports') {
+      document.getElementById('content-reports').classList.remove('hidden');
+      btnReports.className = "flex-1 py-2 rounded-lg text-center bg-white text-gray-900 shadow-sm border border-gray-200/50 cursor-pointer";
+    }
+  }
+
+  function toggleAccordion(panelId) {
+    const panel = document.getElementById(panelId);
+    let arrowId = panelId === 'report-form-panel' ? 'accordion-arrow' : 'settings-arrow';
+    const arrow = document.getElementById(arrowId);
+    
+    if (panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      arrow.style.transform = 'rotate(180deg)';
+    } else {
+      panel.classList.add('hidden');
+      arrow.style.transform = '';
+    }
+  }
+
+  function toggleMsgField(show) {
+    const field = document.getElementById('msg-field-wrapper');
+    if (!field) return;
+    if (show) {
+      field.classList.remove('hidden');
+    } else {
+      field.classList.add('hidden');
+    }
+  }
+
+  function toggleFavDetail(btn, clubId) {
+    const icon = btn.querySelector('i');
+    
+    fetch(`/club/${clubId}/favorite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      if (response.status === 401) {
+        window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+        throw new Error('Unauthorized');
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.status === 'success') {
+        if (data.is_favorite) {
+          icon.classList.add('fill-amber-400', 'text-amber-400');
+          showDetailLocalToast('success', data.message);
+        } else {
+          icon.classList.remove('fill-amber-400', 'text-amber-400');
+          showDetailLocalToast('info', data.message);
+        }
+      }
+    })
+    .catch(err => {
+      if (err.message !== 'Unauthorized') {
+        console.error(err);
+      }
+    });
+  }
+
+  function addClubMember(event) {
+    event.preventDefault();
+    const clubId = "{{ club.id }}";
+    const studentId = document.getElementById('new_mem_id').value.trim().toUpperCase();
+    const name = document.getElementById('new_mem_name').value.trim();
+
+    if (!studentId || !name) return;
+
+    fetch(`/club/${clubId}/add_member`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `student_id=${encodeURIComponent(studentId)}&name=${encodeURIComponent(name)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        showDetailLocalToast('success', data.message);
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      } else {
+        showDetailLocalToast('error', data.message);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+    });
+  }
+
+  function showDetailLocalToast(category, message) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast-item flex items-center gap-2.5 px-4 py-3 rounded-xl border bg-white shadow-lg translate-y-[-10px] opacity-0 transition-all duration-300 pointer-events-auto`;
+    
+    let iconName = '';
+    let iconClass = '';
+
+    if (category === 'success') {
+      toast.classList.add('border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
+      iconName = 'check-circle-2';
+      iconClass = 'text-emerald-500';
+    } else if (category === 'error') {
+      toast.classList.add('border-rose-200', 'text-rose-800', 'bg-rose-50');
+      iconName = 'alert-circle';
+      iconClass = 'text-rose-500';
+    } else {
+      toast.classList.add('border-gray-200', 'text-gray-700', 'bg-gray-50');
+      iconName = 'info';
+      iconClass = 'text-gray-500';
+    }
+
+    toast.innerHTML = `
+      <i data-lucide="${iconName}" class="w-4.5 h-4.5 flex-shrink-0 ${iconClass}"></i>
+      <p class="text-xs font-medium">${message}</p>
+      <button onclick="dismissToast(this.parentElement)" class="ml-auto text-gray-400 hover:text-gray-600 transition-colors p-0.5">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    `;
+
+    container.appendChild(toast);
+    lucide.createIcons();
+
+    setTimeout(() => {
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+    }, 50);
+
+    setTimeout(() => {
+      dismissToast(toast);
+    }, 4000);
+  }
+</script>
+{% endblock %}
