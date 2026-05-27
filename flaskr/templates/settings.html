@@ -1,0 +1,153 @@
+{% extends 'layout.html' %}
+
+{% block title %}ユーザー設定 | Kagi-Kashi{% endblock %}
+
+{% block content %}
+<div class="flex-grow flex flex-col h-full bg-white">
+  
+  <!-- ヘッダー -->
+  <div class="px-4 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-30 select-none">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('index') }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h2 class="text-sm font-bold text-gray-900">ユーザー設定</h2>
+    </div>
+  </div>
+
+  <!-- スクロールエリア -->
+  <div class="flex-1 overflow-y-auto no-scrollbar pb-8 px-5">
+    
+    <!-- ユーザープロフィールカード (プレミアム感向上) -->
+    <div class="my-5 p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100/50 border border-gray-200 shadow-sm flex items-center gap-4">
+      <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center font-bold text-base shadow-inner">
+        {{ current_user_name[0] }}
+      </div>
+      <div class="flex-grow">
+        <h4 class="text-sm font-bold text-gray-900">{{ current_user_name }}</h4>
+        <p class="text-[10px] font-mono text-gray-400 mt-0.5">{{ current_user_id }}</p>
+      </div>
+      <div class="text-right">
+        <span class="text-[8px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">学生アカウント</span>
+      </div>
+    </div>
+
+    <!-- お気に入りサークルセクション -->
+    <div class="mb-6">
+      <h3 class="text-xs font-bold text-gray-450 mb-2 px-1 flex items-center gap-1">
+        <i data-lucide="pin" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i>
+        <span>お気に入りピン留め中</span>
+      </h3>
+      {% if favorites %}
+        <div class="grid grid-cols-2 gap-2">
+          {% for fav in favorites %}
+            <a href="{{ url_for('detail', club_id=fav.club_id) }}" 
+               class="p-2.5 rounded-xl border border-gray-200/80 bg-white hover:bg-gray-50 transition-colors flex items-center gap-2">
+              <div class="w-6.5 h-6.5 rounded-lg bg-sky-200 flex-shrink-0 flex items-center justify-center font-bold text-sky-800 text-[8px] select-none">
+                {{ fav.room_number }}
+              </div>
+              <span class="text-[10px] font-bold text-gray-700 truncate flex-1">{{ fav.name }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="p-4 rounded-xl border border-dashed border-gray-200 text-center bg-gray-50/50">
+          <p class="text-[9px] text-gray-400">お気に入りに登録されているサークルはありません。</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- 所属サークル設定セクション -->
+    <div class="mb-4">
+      <h3 class="text-xs font-bold text-gray-450 mb-2 px-1 flex items-center gap-1">
+        <i data-lucide="users" class="w-3.5 h-3.5 text-gray-400"></i>
+        <span>所属サークル設定（兼部対応）</span>
+      </h3>
+      <p class="text-[10px] text-gray-400 leading-relaxed mb-3 px-1">
+        所属しているサークルを選択してください（複数選択可能）。
+        <br><span class="text-rose-500 font-semibold">※ 盗難防止・監査ログ維持のため、サークルに登録してから30日間は解除（退部）が制限されます。</span>
+      </p>
+
+      <!-- 一括保存フォーム -->
+      <form action="{{ url_for('save_settings') }}" method="POST" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-3">
+          {% for club in clubs %}
+            <div class="p-3 rounded-2xl bg-gray-100/90 border border-gray-200 flex gap-3 relative transition-all items-center">
+              
+              <!-- Figmaモック完全準拠：水色のアイコン枠 -->
+              <div class="w-12 h-12 rounded-xl bg-sky-300 flex-shrink-0 flex items-center justify-center font-bold text-sky-800 text-[8px] select-none shadow-sm">
+                アイコン
+              </div>
+
+              <!-- 中央詳細 -->
+              <div class="flex-grow flex flex-col justify-center">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-1 border border-gray-400 rounded text-[8px] font-bold text-gray-600 bg-white">
+                    {{ club.room_number }}
+                  </span>
+                  <span class="text-[8px] font-bold text-gray-400 font-outfit">鍵: {{ club.key_number }}</span>
+                </div>
+                <h3 class="text-xs font-bold text-gray-900 mt-0.5">{{ club.name }}</h3>
+                
+                <!-- 登録日 & 30日ロック警告表示 -->
+                {% if club.is_member %}
+                  <div class="mt-1">
+                    {% if club.locked %}
+                      <span class="text-[9px] font-bold text-rose-500 flex items-center gap-0.5 leading-tight">
+                        <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-rose-500 flex-shrink-0"></i>
+                        ロック中: あと {{ club.remaining_days }} 日 ({{ club.registered_at }})
+                      </span>
+                    {% else %}
+                      <span class="text-[9px] text-gray-400 flex items-center gap-0.5 leading-tight">
+                        <i data-lucide="check-circle" class="w-3.5 h-3.5 text-gray-400 flex-shrink-0"></i>
+                        登録解除可能 (登録日: {{ club.registered_at }})
+                      </span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- 右側チェックボックス -->
+              <div class="flex items-center justify-center z-20 pr-1 flex-shrink-0">
+                {% if club.locked %}
+                  <input type="hidden" name="clubs" value="{{ club.id }}" />
+                  <input type="checkbox" checked disabled
+                         class="w-5 h-5 rounded border-gray-300 text-rose-600 focus:ring-rose-500 cursor-not-allowed opacity-60" />
+                {% else %}
+                  <input type="checkbox" name="clubs" value="{{ club.id }}" id="club-check-{{ club.id }}"
+                         {% if club.is_member %}checked{% endif %}
+                         class="w-5 h-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                {% endif %}
+              </div>
+
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- 設定保存ボタン -->
+        <button type="submit" 
+                class="w-full py-3.5 mt-4 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-95 transition-all cursor-pointer">
+          設定を保存する
+        </button>
+      </form>
+    </div>
+
+    <!-- アカウント操作セクション -->
+    <div class="mt-8 border-t border-gray-100 pt-5">
+      <h3 class="text-xs font-bold text-gray-400 mb-3 px-1">アカウント操作</h3>
+      <a href="{{ url_for('logout') }}" 
+         class="w-full py-3.5 rounded-xl border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm bg-white">
+        <i data-lucide="log-out" class="w-4 h-4"></i>
+        <span>ログアウトする</span>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- フッター -->
+  <div class="text-center py-4 border-t border-gray-50 bg-white">
+    <p class="text-[9px] text-gray-400">&copy; Hokkaido Information University</p>
+  </div>
+
+</div>
+{% endblock %}

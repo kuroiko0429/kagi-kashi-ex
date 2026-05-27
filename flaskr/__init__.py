@@ -521,12 +521,12 @@ def create_app(test_config=None):
             conn.rollback()
             return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
 
-    # マイサークル（所属サークル設定）画面の表示
-    @app.route('/my_clubs')
-    def my_clubs():
+    # ユーザー設定（プロフィール・お気に入り・サークル登録）画面の表示
+    @app.route('/settings')
+    def settings():
         user_id = session.get('user_id')
         if not user_id:
-            flash('所属サークルを設定するにはログインが必要です。', 'error')
+            flash('ユーザー設定画面にアクセスするにはログインが必要です。', 'error')
             return redirect(url_for('login', next=request.path))
 
         conn = db.get_db()
@@ -541,6 +541,12 @@ def create_app(test_config=None):
         ).fetchall()
         
         membership_map = {m['club_id']: m for m in my_memberships}
+        
+        # お気に入りサークルを取得
+        my_favorites = conn.execute(
+            'SELECT f.club_id, c.name, c.room_number FROM favorites f JOIN clubs c ON f.club_id = c.id WHERE f.student_id = ?',
+            (user_id,)
+        ).fetchall()
         
         from datetime import datetime
         clubs_list = []
@@ -573,15 +579,21 @@ def create_app(test_config=None):
                 
             clubs_list.append(c_dict)
 
-        return render_template('my_clubs.html', clubs=clubs_list)
+        return render_template('settings.html', clubs=clubs_list, favorites=my_favorites)
 
-    # マイサークル（所属サークル設定）の一括保存処理
+    # 従来のルート互換性のためのリダイレクト
+    @app.route('/my_clubs')
+    def my_clubs():
+        return redirect(url_for('settings'))
+
+    # ユーザー設定（所属サークル登録）の一括保存処理
+    @app.route('/settings/save', methods=('POST',))
     @app.route('/my_clubs/save', methods=('POST',))
-    def save_my_clubs():
+    def save_settings():
         user_id = session.get('user_id')
         user_name = session.get('user_name')
         if not user_id:
-            flash('所属サークルを設定するにはログインが必要です。', 'error')
+            flash('ユーザー設定を更新するにはログインが必要です。', 'error')
             return redirect(url_for('login'))
 
         # チェックされたサークルIDのリストを取得
@@ -618,7 +630,7 @@ def create_app(test_config=None):
                     club_name = conn.execute('SELECT name FROM clubs WHERE id = ?', (club_id,)).fetchone()['name']
                     remaining = 30 - days_passed
                     flash(f'盗難防止および監査ログ維持のため、登録から30日間はサークル「{club_name}」の登録解除ができません。あと {remaining} 日間お待ちいただく必要があります。', 'error')
-                    return redirect(url_for('my_clubs'))
+                    return redirect(url_for('settings'))
 
         # トランザクション保存処理
         try:
@@ -644,6 +656,6 @@ def create_app(test_config=None):
             conn.rollback()
             flash(f'設定保存中にエラーが発生しました: {str(e)}', 'error')
 
-        return redirect(url_for('index'))
+        return redirect(url_for('settings'))
 
     return app

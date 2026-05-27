@@ -179,6 +179,30 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertIn("鍵を返す", html)
         self.assertIn("鍵番号: K-402", html)
 
+    def test_settings_page(self):
+        """ユーザー設定画面の表示およびお気に入りピン留め表示テスト"""
+        # 未ログイン時はログインへリダイレクト
+        rv = self.client.get('/settings')
+        self.assertEqual(rv.status_code, 302)
+        
+        # ログインする
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+            
+        rv = self.client.get('/settings')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn("ユーザー設定", html)
+        self.assertIn("佐藤 太陽", html)
+        self.assertIn("S2023001", html)
+        self.assertIn("お気に入りピン留め中", html)
+        
+        # さらに、従来の /my_clubs が正常に /settings へリダイレクトするか検証
+        rv = self.client.get('/my_clubs')
+        self.assertEqual(rv.status_code, 302)
+        self.assertTrue(rv.location.endswith('/settings'))
+
     def test_my_clubs_get_page(self):
         """所属サークル設定画面の表示テスト"""
         # 未ログイン時はログインへリダイレクト
@@ -190,10 +214,10 @@ class KagiKashiTestCase(unittest.TestCase):
             sess['user_id'] = 'S2023001'
             sess['user_name'] = '佐藤 太陽'
             
-        rv = self.client.get('/my_clubs')
+        rv = self.client.get('/my_clubs', follow_redirects=True)
         self.assertEqual(rv.status_code, 200)
         html = rv.data.decode('utf-8')
-        self.assertIn("所属サークル設定", html)
+        self.assertIn("ユーザー設定", html)
         self.assertIn("ボードゲームサークル", html)
 
     def test_save_my_clubs_success(self):
