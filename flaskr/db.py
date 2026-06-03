@@ -11,6 +11,15 @@ def get_db():
         )
         g.db.row_factory = sqlite3.Row
 
+        # テーブルが存在しない場合は自動的に初期化する
+        cursor = g.db.cursor()
+        try:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clubs'")
+            if not cursor.fetchone():
+                init_db()
+        except sqlite3.Error:
+            pass
+
     return g.db
 
 
