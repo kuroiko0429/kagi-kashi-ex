@@ -11,7 +11,8 @@ CREATE TABLE clubs (
   status TEXT NOT NULL DEFAULT 'locked', -- 'locked' (施錠中), 'active' (活動中), 'temp_locked' (一時施錠中)
   message TEXT,
   icon_color TEXT NOT NULL, -- e.g., '#10b981'
-  key_number TEXT NOT NULL
+  key_number TEXT NOT NULL,
+  category TEXT NOT NULL -- 'sports' (体育系), 'cultural' (文化系), 'association' (同好会)
 );
 
 CREATE TABLE members (

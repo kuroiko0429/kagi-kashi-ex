@@ -40,16 +40,58 @@ def init_db():
     # シードデータの挿入
     # 1. サークル (Clubs)
     clubs_data = [
-        ("ボードゲームサークル", "401", "locked", "本日は17:00から活動予定です。", "#10b981", "K-401"),
-        ("コンピュータ研究会", "402", "active", "", "#4f46e5", "K-402"),
-        ("写真部", "102", "locked", "", "#ec4899", "K-102"),
-        ("軽音楽部", "204", "temp_locked", "機材搬入のため15分ほど施錠します。すぐ戻ります！", "#8b5cf6", "K-204"),
-        ("アニメーション研究会", "105", "locked", "", "#f97316", "K-105"),
+        # 元のテスト用クラブを実在するものにマッピング (ID 1-5)
+        ("囲碁・将棋・ボードゲーム部", "401", "locked", "本日は17:00から活動予定です。", "#10b981", "K-401", "cultural"),
+        ("Computer Operating Club(COC)", "402", "active", "", "#4f46e5", "K-402", "cultural"),
+        ("写真サークル", "102", "locked", "", "#ec4899", "K-102", "association"),
+        ("軽音楽部", "204", "temp_locked", "機材搬入のため15分ほど施錠します。すぐ戻ります！", "#8b5cf6", "K-204", "cultural"),
+        ("総合創作サークル(SSS)", "105", "locked", "", "#f97316", "K-105", "cultural"),
+        
+        # 体育系クラブ
+        ("バスケットボール部", "111", "locked", "", "#f97316", "K-111", "sports"),
+        ("硬式野球部", "112", "locked", "", "#3b82f6", "K-112", "sports"),
+        ("バドミントン部", "113", "locked", "", "#10b981", "K-113", "sports"),
+        ("卓球部", "114", "locked", "", "#ef4444", "K-114", "sports"),
+        ("軟式野球部", "115", "locked", "", "#6366f1", "K-115", "sports"),
+        ("フットサル部", "116", "locked", "", "#8b5cf6", "K-116", "sports"),
+        ("情報大ダーツサークル ～formura～", "117", "locked", "", "#ec4899", "K-117", "sports"),
+        ("ミニバレーサークル", "118", "locked", "", "#f59e0b", "K-118", "sports"),
+        ("バレーボール部", "119", "locked", "", "#14b8a6", "K-119", "sports"),
+
+        # 文化系クラブ (COC、軽音楽部、ボードゲーム部、SSS はID 1-5で定義済み)
+        ("アートクラブ", "211", "locked", "", "#f43f5e", "K-211", "cultural"),
+        ("映像研究部", "212", "locked", "", "#06b6d4", "K-212", "cultural"),
+        ("DTMサークル Sound Terminal", "213", "locked", "", "#84cc16", "K-213", "cultural"),
+        ("eスポーツサークル", "214", "locked", "", "#a855f7", "K-214", "cultural"),
+        ("宇宙開発研究会", "215", "locked", "", "#1e1b4b", "K-215", "cultural"),
+
+        # 同好会 (写真サークルはID 3で定義済み)
+        ("Yosakoiソーランサークル", "311", "locked", "", "#e11d48", "K-311", "association"),
+        ("ESS(English Speaking Society)", "312", "locked", "", "#2563eb", "K-312", "association"),
+        ("TRPG同好会", "313", "locked", "", "#16a34a", "K-313", "association"),
+        ("ミリタリー同好会", "314", "locked", "", "#4b5563", "K-314", "association"),
+        ("アコースティックギター同好会", "315", "locked", "", "#ca8a04", "K-315", "association"),
+        ("ポケモンサークル「グラシデア」", "316", "locked", "", "#ea580c", "K-316", "association"),
+        ("3DCG同好会", "317", "locked", "", "#9333ea", "K-317", "association"),
+        ("ボランティアサークル", "318", "locked", "", "#059669", "K-318", "association"),
+        ("謎解きサークル Mystery", "319", "locked", "", "#db2777", "K-319", "association"),
+        ("吹奏楽サークル", "320", "locked", "", "#4f46e5", "K-320", "association"),
+        ("硬式テニス部", "321", "locked", "", "#2563eb", "K-321", "association"),
+        ("ソフトボール同好会", "322", "locked", "", "#0d9488", "K-322", "association"),
+        ("ソフトテニスサークル", "323", "locked", "", "#0284c7", "K-323", "association"),
+        ("バトルホビー同好会", "324", "locked", "", "#7c3aed", "K-324", "association"),
+        ("競技麻雀同好会　てんほー", "325", "locked", "", "#b91c1c", "K-325", "association"),
+        ("HIPHOP 同好会", "326", "locked", "", "#4f46e5", "K-326", "association"),
+        ("ローカルゲーム同好会", "327", "locked", "", "#0891b2", "K-327", "association"),
+        ("コスプレ同好会", "328", "locked", "", "#c026d3", "K-328", "association"),
+        ("ゲーム開発同好会", "329", "locked", "", "#4f46e5", "K-329", "association"),
+        ("演劇同好会", "330", "locked", "", "#ea580c", "K-330", "association"),
+        ("ダンスサークル", "331", "locked", "", "#e11d48", "K-331", "association")
     ]
-    for name, room, status, msg, color, key_num in clubs_data:
+    for name, room, status, msg, color, key_num, cat in clubs_data:
         db.execute(
-            "INSERT INTO clubs (name, room_number, status, message, icon_color, key_number) VALUES (?, ?, ?, ?, ?, ?)",
-            (name, room, status, msg, color, key_num)
+            "INSERT INTO clubs (name, room_number, status, message, icon_color, key_number, category) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, room, status, msg, color, key_num, cat)
         )
 
     # 2. サークルメンバー (Members)

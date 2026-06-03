@@ -76,92 +76,305 @@
       </div>
     </div>
 
-    <!-- サークルカード一覧 (グレー背景カード) -->
-    <div class="px-4 py-4 flex flex-col gap-3" id="clubs-container">
-      {% for key in keys %}
-        <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
-             data-name="{{ key.name }}"
-             data-room="{{ key.room_number }}"
-             data-status="{{ key.status }}">
-             
-          <!-- 詳細へのリンク -->
-          <a href="{{ url_for('detail', club_id=key.id) }}" class="absolute inset-0 z-10 rounded-2xl"></a>
-
-          <!-- Figmaモック完全準拠：水色のアイコン枠 -->
-          <div class="w-14 h-14 rounded-xl bg-sky-300 flex-shrink-0 flex items-center justify-center font-bold text-sky-800 text-[10px] select-none shadow-sm">
-            アイコン
+    <!-- サークルカード一覧 (カテゴリー別にグループ化) -->
+    <div class="py-2 flex flex-col gap-1" id="clubs-container">
+      
+      <!-- 体育系クラブ Section -->
+      <div class="category-section mb-2" id="section-sports" data-expanded="false">
+        <button onclick="toggleSection('sports')" class="w-full px-4 py-3 flex items-center justify-between border-b border-gray-50 bg-white hover:bg-gray-50/80 transition-colors cursor-pointer text-left focus:outline-none">
+          <div class="flex items-center gap-2 select-none">
+            <i data-lucide="trophy" class="w-4 h-4 text-sky-600"></i>
+            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider font-extrabold">体育系クラブ</h2>
           </div>
+          <i data-lucide="chevron-down" id="arrow-sports" class="w-4 h-4 text-gray-400 transition-transform duration-200 -rotate-90"></i>
+        </button>
+        <div id="content-sports" class="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out">
+          <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
+            {% for key in keys if key.category == 'sports' %}
+              <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
+                   data-name="{{ key.name }}"
+                   data-room="{{ key.room_number }}"
+                   data-status="{{ key.status }}">
+                   
+                <!-- 詳細へのリンク -->
+                <a href="{{ url_for('detail', club_id=key.id) }}" class="absolute inset-0 z-10 rounded-2xl"></a>
 
-          <!-- 中央詳細 -->
-          <div class="flex-1 flex flex-col justify-center">
-            <!-- 部屋番号バッジ & ステータステキスト -->
-            <div class="flex items-center gap-1.5 text-[9px] font-bold">
-              <span class="px-1 border border-gray-400 rounded text-gray-600 bg-white">
-                {{ key.room_number }}
-              </span>
-              
-              {% if key.status == 'active' %}
-                <span class="text-emerald-600 flex items-center gap-0.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  活動中
-                </span>
-              {% elif key.status == 'temp_locked' %}
-                <span class="text-amber-600 flex items-center gap-0.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  一時施錠中
-                </span>
-              {% else %}
-                <span class="text-gray-500 flex items-center gap-0.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                  施錠中
-                </span>
-              {% endif %}
-            </div>
+                <!-- 水色のアイコン枠 -->
+                <div class="w-14 h-14 rounded-xl bg-sky-300 flex-shrink-0 flex items-center justify-center font-bold text-sky-800 text-[10px] select-none shadow-sm">
+                  アイコン
+                </div>
 
-            <!-- サークル名 (太字) -->
-            <h3 class="text-xs font-bold text-gray-900 leading-tight mt-1 truncate">
-              {{ key.name }}
-            </h3>
+                <!-- 中央詳細 -->
+                <div class="flex-1 flex flex-col justify-center">
+                  <!-- 部屋番号バッジ & ステータステキスト -->
+                  <div class="flex items-center gap-1.5 text-[9px] font-bold">
+                    <span class="px-1 border border-gray-400 rounded text-gray-600 bg-white">
+                      {{ key.room_number }}
+                    </span>
+                    
+                    {% if key.status == 'active' %}
+                      <span class="text-emerald-600 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        活動中
+                      </span>
+                    {% elif key.status == 'temp_locked' %}
+                      <span class="text-amber-600 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        一時施錠中
+                      </span>
+                    {% else %}
+                      <span class="text-gray-500 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        施錠中
+                      </span>
+                    {% endif %}
+                  </div>
 
-            <!-- メッセージ欄 -->
-            <p class="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
-              {% if key.message %}
-                {{ key.message }}
-              {% else %}
-                {% if key.status == 'active' %}
-                  {{ key.borrower_name }}さんが活動中です
-                {% else %}
-                  メッセージを残せます
-                {% endif %}
-              {% endif %}
-            </p>
+                  <!-- サークル名 (太字) -->
+                  <h3 class="text-xs font-bold text-gray-900 leading-tight mt-1 truncate">
+                    {{ key.name }}
+                  </h3>
 
-            <!-- クイックアクションボタン (カード詳細リンクz-10より上のz-20に配置してクリック可能にする) -->
-            <div class="mt-1.5 flex gap-2 z-20 relative">
-              {% if key.status == 'locked' %}
-                <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                   class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                  借りる
-                </a>
-              {% else %}
-                <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                   class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                  返す
-                </a>
-              {% endif %}
-            </div>
+                  <!-- メッセージ欄 -->
+                  <p class="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
+                    {% if key.message %}
+                      {{ key.message }}
+                    {% else %}
+                      {% if key.status == 'active' %}
+                        {{ key.borrower_name }}さんが活動中です
+                      {% else %}
+                        メッセージを残せます
+                      {% endif %}
+                    {% endif %}
+                  </p>
+
+                  <!-- クイックアクションボタン -->
+                  <div class="mt-1.5 flex gap-2 z-20 relative">
+                    {% if key.status == 'locked' %}
+                      <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                         class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                        借りる
+                      </a>
+                    {% else %}
+                      <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                         class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                        返す
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- 右側：お気に入りスター -->
+                <div class="flex items-center justify-center z-20">
+                  <button onclick="toggleFav(this, {{ key.id }})" 
+                          class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
+                    <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
+                  </button>
+                </div>
+
+              </div>
+            {% endfor %}
           </div>
-
-          <!-- 右側：お気に入りスター (Figmaモック準拠) -->
-          <div class="flex items-center justify-center z-20">
-            <button onclick="toggleFav(this, {{ key.id }})" 
-                    class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
-              <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
-            </button>
-          </div>
-
         </div>
-      {% endfor %}
+      </div>
+
+      <!-- 文化系クラブ Section -->
+      <div class="category-section mb-2" id="section-cultural" data-expanded="false">
+        <button onclick="toggleSection('cultural')" class="w-full px-4 py-3 flex items-center justify-between border-b border-gray-50 bg-white hover:bg-gray-50/80 transition-colors cursor-pointer text-left focus:outline-none">
+          <div class="flex items-center gap-2 select-none">
+            <i data-lucide="palette" class="w-4 h-4 text-violet-600"></i>
+            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider font-extrabold">文化系クラブ</h2>
+          </div>
+          <i data-lucide="chevron-down" id="arrow-cultural" class="w-4 h-4 text-gray-400 transition-transform duration-200 -rotate-90"></i>
+        </button>
+        <div id="content-cultural" class="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out">
+          <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
+            {% for key in keys if key.category == 'cultural' %}
+              <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
+                   data-name="{{ key.name }}"
+                   data-room="{{ key.room_number }}"
+                   data-status="{{ key.status }}">
+                   
+                <!-- 詳細へのリンク -->
+                <a href="{{ url_for('detail', club_id=key.id) }}" class="absolute inset-0 z-10 rounded-2xl"></a>
+
+                <!-- 水色のアイコン枠 -->
+                <div class="w-14 h-14 rounded-xl bg-sky-300 flex-shrink-0 flex items-center justify-center font-bold text-sky-800 text-[10px] select-none shadow-sm">
+                  アイコン
+                </div>
+
+                <!-- 中央詳細 -->
+                <div class="flex-1 flex flex-col justify-center">
+                  <!-- 部屋番号バッジ & ステータステキスト -->
+                  <div class="flex items-center gap-1.5 text-[9px] font-bold">
+                    <span class="px-1 border border-gray-400 rounded text-gray-600 bg-white">
+                      {{ key.room_number }}
+                    </span>
+                    
+                    {% if key.status == 'active' %}
+                      <span class="text-emerald-600 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        活動中
+                      </span>
+                    {% elif key.status == 'temp_locked' %}
+                      <span class="text-amber-600 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        一時施錠中
+                      </span>
+                    {% else %}
+                      <span class="text-gray-500 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        施錠中
+                      </span>
+                    {% endif %}
+                  </div>
+
+                  <!-- サークル名 (太字) -->
+                  <h3 class="text-xs font-bold text-gray-900 leading-tight mt-1 truncate">
+                    {{ key.name }}
+                  </h3>
+
+                  <!-- メッセージ欄 -->
+                  <p class="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
+                    {% if key.message %}
+                      {{ key.message }}
+                    {% else %}
+                      {% if key.status == 'active' %}
+                        {{ key.borrower_name }}さんが活動中です
+                      {% else %}
+                        メッセージを残せます
+                      {% endif %}
+                    {% endif %}
+                  </p>
+
+                  <!-- クイックアクションボタン -->
+                  <div class="mt-1.5 flex gap-2 z-20 relative">
+                    {% if key.status == 'locked' %}
+                      <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                         class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                        借りる
+                      </a>
+                    {% else %}
+                      <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                         class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                        返す
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- 右側：お気に入りスター -->
+                <div class="flex items-center justify-center z-20">
+                  <button onclick="toggleFav(this, {{ key.id }})" 
+                          class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
+                    <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
+                  </button>
+                </div>
+
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- 同好会 Section -->
+      <div class="category-section mb-2" id="section-association" data-expanded="false">
+        <button onclick="toggleSection('association')" class="w-full px-4 py-3 flex items-center justify-between border-b border-gray-50 bg-white hover:bg-gray-50/80 transition-colors cursor-pointer text-left focus:outline-none">
+          <div class="flex items-center gap-2 select-none">
+            <i data-lucide="users" class="w-4 h-4 text-emerald-600"></i>
+            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider font-extrabold">同好会</h2>
+          </div>
+          <i data-lucide="chevron-down" id="arrow-association" class="w-4 h-4 text-gray-400 transition-transform duration-200 -rotate-90"></i>
+        </button>
+        <div id="content-association" class="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out">
+          <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
+            {% for key in keys if key.category == 'association' %}
+              <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
+                   data-name="{{ key.name }}"
+                   data-room="{{ key.room_number }}"
+                   data-status="{{ key.status }}">
+                   
+                <!-- 詳細へのリンク -->
+                <a href="{{ url_for('detail', club_id=key.id) }}" class="absolute inset-0 z-10 rounded-2xl"></a>
+
+                <!-- 水色のアイコン枠 -->
+                <div class="w-14 h-14 rounded-xl bg-sky-300 flex-shrink-0 flex items-center justify-center font-bold text-sky-800 text-[10px] select-none shadow-sm">
+                  アイコン
+                </div>
+
+                <!-- 中央詳細 -->
+                <div class="flex-1 flex flex-col justify-center">
+                  <!-- 部屋番号バッジ & ステータステキスト -->
+                  <div class="flex items-center gap-1.5 text-[9px] font-bold">
+                    <span class="px-1 border border-gray-400 rounded text-gray-600 bg-white">
+                      {{ key.room_number }}
+                    </span>
+                    
+                    {% if key.status == 'active' %}
+                      <span class="text-emerald-600 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        活動中
+                      </span>
+                    {% elif key.status == 'temp_locked' %}
+                      <span class="text-amber-600 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        一時施錠中
+                      </span>
+                    {% else %}
+                      <span class="text-gray-500 flex items-center gap-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        施錠中
+                      </span>
+                    {% endif %}
+                  </div>
+
+                  <!-- サークル名 (太字) -->
+                  <h3 class="text-xs font-bold text-gray-900 leading-tight mt-1 truncate">
+                    {{ key.name }}
+                  </h3>
+
+                  <!-- メッセージ欄 -->
+                  <p class="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
+                    {% if key.message %}
+                      {{ key.message }}
+                    {% else %}
+                      {% if key.status == 'active' %}
+                        {{ key.borrower_name }}さんが活動中です
+                      {% else %}
+                        メッセージを残せます
+                      {% endif %}
+                    {% endif %}
+                  </p>
+
+                  <!-- クイックアクションボタン -->
+                  <div class="mt-1.5 flex gap-2 z-20 relative">
+                    {% if key.status == 'locked' %}
+                      <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                         class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                        借りる
+                      </a>
+                    {% else %}
+                      <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
+                         class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                        返す
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- 右側：お気に入りスター -->
+                <div class="flex items-center justify-center z-20">
+                  <button onclick="toggleFav(this, {{ key.id }})" 
+                          class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
+                    <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
+                  </button>
+                </div>
+
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
       
       <!-- 検索結果なし -->
       <div id="no-results" class="hidden text-center py-10">
@@ -221,31 +434,79 @@
 
   function applyFilters() {
     const searchVal = document.getElementById('search-input').value.trim().toLowerCase();
-    const cards = document.querySelectorAll('.club-card');
-    let visibleCount = 0;
+    const sections = document.querySelectorAll('.category-section');
+    let totalVisibleCount = 0;
 
-    cards.forEach(card => {
-      const name = card.getAttribute('data-name').toLowerCase();
-      const room = card.getAttribute('data-room').toLowerCase();
-      const status = card.getAttribute('data-status');
+    sections.forEach(section => {
+      const cards = section.querySelectorAll('.club-card');
+      let sectionVisibleCount = 0;
 
-      const matchesSearch = name.includes(searchVal) || room.includes(searchVal);
-      const matchesTab = (activeTabFilter === 'all') || (status === activeTabFilter);
+      cards.forEach(card => {
+        const name = card.getAttribute('data-name').toLowerCase();
+        const room = card.getAttribute('data-room').toLowerCase();
+        const status = card.getAttribute('data-status');
 
-      if (matchesSearch && matchesTab) {
-        card.style.display = 'flex';
-        visibleCount++;
+        const matchesSearch = name.includes(searchVal) || room.includes(searchVal);
+        const matchesTab = (activeTabFilter === 'all') || (status === activeTabFilter);
+
+        if (matchesSearch && matchesTab) {
+          card.style.display = 'flex';
+          sectionVisibleCount++;
+          totalVisibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // セクション内に表示対象のカードが1つもなければセクションごと非表示にする
+      if (sectionVisibleCount === 0) {
+        section.style.display = 'none';
       } else {
-        card.style.display = 'none';
+        section.style.display = 'block';
+        // 検索文字が入力されている、またはステータスが絞り込まれている場合は自動で開く
+        if (searchVal.length > 0 || activeTabFilter !== 'all') {
+          const catId = section.id.replace('section-', '');
+          expandSection(catId);
+        }
       }
     });
 
     const noResults = document.getElementById('no-results');
-    if (visibleCount === 0) {
+    if (totalVisibleCount === 0) {
       noResults.classList.remove('hidden');
     } else {
       noResults.classList.add('hidden');
     }
+  }
+
+  function toggleSection(cat) {
+    const section = document.getElementById(`section-${cat}`);
+    const isExpanded = section.getAttribute('data-expanded') === 'true';
+    if (isExpanded) {
+      collapseSection(cat);
+    } else {
+      expandSection(cat);
+    }
+  }
+
+  function collapseSection(cat) {
+    const section = document.getElementById(`section-${cat}`);
+    const content = document.getElementById(`content-${cat}`);
+    const arrow = document.getElementById(`arrow-${cat}`);
+    section.setAttribute('data-expanded', 'false');
+    content.classList.remove('grid-rows-[1fr]', 'opacity-100');
+    content.classList.add('grid-rows-[0fr]', 'opacity-0');
+    arrow.classList.add('-rotate-90');
+  }
+
+  function expandSection(cat) {
+    const section = document.getElementById(`section-${cat}`);
+    const content = document.getElementById(`content-${cat}`);
+    const arrow = document.getElementById(`arrow-${cat}`);
+    section.setAttribute('data-expanded', 'true');
+    content.classList.remove('grid-rows-[0fr]', 'opacity-0');
+    content.classList.add('grid-rows-[1fr]', 'opacity-100');
+    arrow.classList.remove('-rotate-90');
   }
 
   function toggleFav(btn, clubId) {
