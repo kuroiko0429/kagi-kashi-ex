@@ -100,3 +100,8 @@ kagi-kashi-ex/
 ├── README.md            # このファイル
 └── requirements.txt     # 依存ライブラリ一覧
 ```
+
+## todo
+- [ ] 大学のgoogleアカウント(@do-johodai.ac.jp)にログインできるようにしたい
+- [ ] ログインしたユーザーのサークルについて、メッセージを残せるようにしたい
+
