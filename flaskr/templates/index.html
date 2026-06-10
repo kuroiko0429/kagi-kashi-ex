@@ -164,6 +164,17 @@
                          class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
                         返す
                       </a>
+                      {% if key.status == 'active' %}
+                        <button type="button" onclick="handleQuickStatus(event, {{ key.id }}, 'temp_locked')"
+                                class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                          一時施錠
+                        </button>
+                      {% elif key.status == 'temp_locked' %}
+                        <button type="button" onclick="handleQuickStatus(event, {{ key.id }}, 'active')"
+                                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                          活動再開
+                        </button>
+                      {% endif %}
                     {% endif %}
                   </div>
                 </div>
@@ -538,6 +549,40 @@
       if (err.message !== 'Unauthorized') {
         console.error(err);
       }
+    });
+  }
+
+  function handleQuickStatus(event, clubId, newStatus) {
+    if (event) event.stopPropagation();
+    
+    let message = "";
+    if (newStatus === 'temp_locked') {
+      const input = prompt("一時施錠メッセージを入力してください（例：お昼休憩のため13:30に戻ります。省略可能）：");
+      if (input === null) return; // Cancelled
+      message = input.trim();
+    }
+
+    fetch(`/club/${clubId}/quick_status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `status=${encodeURIComponent(newStatus)}&message=${encodeURIComponent(message)}`
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+      if (status === 200) {
+        showToast('success', data.message);
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      } else {
+        showToast('error', data.message);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('error', '通信エラーが発生しました。');
     });
   }
 </script>

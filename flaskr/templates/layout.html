@@ -150,6 +150,51 @@
           window.location.reload();
         }, 400);
       }
+
+      function showToast(category, message) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast-item flex items-center gap-2.5 px-4 py-3 rounded-xl border bg-white shadow-lg translate-y-[-10px] opacity-0 transition-all duration-300 pointer-events-auto`;
+        
+        let iconName = '';
+        let iconClass = '';
+
+        if (category === 'success') {
+          toast.classList.add('border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
+          iconName = 'check-circle-2';
+          iconClass = 'text-emerald-500';
+        } else if (category === 'error') {
+          toast.classList.add('border-rose-200', 'text-rose-800', 'bg-rose-50');
+          iconName = 'alert-circle';
+          iconClass = 'text-rose-500';
+        } else {
+          toast.classList.add('border-gray-200', 'text-gray-700', 'bg-gray-50');
+          iconName = 'info';
+          iconClass = 'text-gray-500';
+        }
+
+        toast.innerHTML = `
+          <i data-lucide="${iconName}" class="w-4.5 h-4.5 flex-shrink-0 ${iconClass}"></i>
+          <p class="text-xs font-medium">${message}</p>
+          <button onclick="dismissToast(this.parentElement)" class="ml-auto text-gray-400 hover:text-gray-600 transition-colors p-0.5">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+
+        container.appendChild(toast);
+        lucide.createIcons();
+
+        setTimeout(() => {
+          toast.style.transform = 'translateY(0)';
+          toast.style.opacity = '1';
+        }, 50);
+
+        setTimeout(() => {
+          dismissToast(toast);
+        }, 4000);
+      }
     </script>
     {% block scripts %}{% endblock %}
   </body>

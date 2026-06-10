@@ -359,6 +359,49 @@ def create_app(test_config=None):
 
         return redirect(url_for('detail', club_id=club_id))
 
+    # クイック状況更新API (一時施錠・活動再開)
+    @app.route('/club/<int:club_id>/quick_status', methods=('POST',))
+    def quick_status(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': '状況を変更するにはログインが必要です。'}), 401
+            
+        status = request.form.get('status')
+        message = request.form.get('message', '').strip()
+
+        if status not in ('active', 'temp_locked'):
+            return jsonify({'status': 'error', 'message': '無効なステータスです。'}), 400
+
+        conn = db.get_db()
+        
+        # 鍵が貸出中であるか（保管中の場合は状況を変更できない）
+        club = conn.execute('SELECT * FROM clubs WHERE id = ?', (club_id,)).fetchone()
+        if not club:
+            return jsonify({'status': 'error', 'message': '指定されたサークルが見つかりません。'}), 404
+            
+        if club['status'] == 'locked':
+            return jsonify({'status': 'error', 'message': '鍵が保管中のため、状況を変更できません。まず鍵を借りてください。'}), 400
+
+        # 操作ユーザーが該当サークルの部員であるかどうかの検証 (セキュリティ)
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, user_id)
+        ).fetchone()
+        if not member:
+            return jsonify({'status': 'error', 'message': 'このサークルの登録メンバーのみが状況を変更できます。'}), 403
+
+        try:
+            conn.execute(
+                "UPDATE clubs SET status = ?, message = ? WHERE id = ?",
+                (status, message, club_id)
+            )
+            conn.commit()
+            status_jp = "活動中" if status == "active" else "一時施錠中"
+            return jsonify({'status': 'success', 'message': f'状況を「{status_jp}」に変更しました。'})
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'status': 'error', 'message': f'データベースエラーが発生しました: {str(e)}'}), 500
+
     # 活動報告書の提出処理
     @app.route('/club/<int:club_id>/report', methods=('POST',))
     def submit_report(club_id):

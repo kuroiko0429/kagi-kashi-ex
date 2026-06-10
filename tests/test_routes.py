@@ -276,6 +276,68 @@ class KagiKashiTestCase(unittest.TestCase):
         json_data = rv.get_json()
         self.assertEqual(json_data['status'], 'success')
 
+    def test_quick_status_api(self):
+        """クイック状況更新 API (一時施錠・活動再開) のテスト"""
+        # 1. 未ログインでのアクセスは401エラーになるはず
+        rv = self.client.post('/club/1/quick_status', data={
+            'status': 'temp_locked',
+            'message': 'ちょっと外出します'
+        })
+        self.assertEqual(rv.status_code, 401)
+
+        # ログインする (佐藤 太陽: S2023001, 囲碁・将棋・ボードゲーム部 ID:1 のメンバー)
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        # 2. 鍵が保管中(locked)の状態で状況更新しようとすると400エラーになるはず
+        rv = self.client.post('/club/1/quick_status', data={
+            'status': 'temp_locked',
+            'message': 'ちょっと外出します'
+        })
+        self.assertEqual(rv.status_code, 400)
+        self.assertIn("鍵が保管中のため、状況を変更できません", rv.get_json()['message'])
+
+        # 3. 鍵を借りる (active にする)
+        rv = self.client.post('/club/1/borrow', data={
+            'student_id': 'S2023001',
+            'name': '佐藤 太陽',
+            'key_number': 'K-401'
+        }, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+
+        # 4. 部外者のログインユーザー (田中 葵: S2023004, コンピュータ研究会 ID:2) が
+        # 囲碁・将棋・ボードゲーム部 (ID:1) の状況を変更しようとすると403エラーになるはず
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023004'
+            sess['user_name'] = '田中 葵'
+
+        rv = self.client.post('/club/1/quick_status', data={
+            'status': 'temp_locked',
+            'message': 'お昼休み'
+        })
+        self.assertEqual(rv.status_code, 403)
+
+        # 5. 正しいメンバー (佐藤 太陽) で一時施錠に変更できることを確認 (200 OK)
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        rv = self.client.post('/club/1/quick_status', data={
+            'status': 'temp_locked',
+            'message': 'お昼休み'
+        })
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.get_json()['status'], 'success')
+
+        # 6. 活動再開に変更できることを確認 (200 OK)
+        rv = self.client.post('/club/1/quick_status', data={
+            'status': 'active',
+            'message': ''
+        })
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.get_json()['status'], 'success')
+
 
 if __name__ == '__main__':
     unittest.main()
