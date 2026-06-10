@@ -140,6 +140,16 @@
           drawer.classList.add('translate-x-full');
         }
       }
+
+      function handleReload(btn) {
+        const icon = btn.querySelector('[data-lucide="rotate-cw"]') || btn.querySelector('i');
+        if (icon) {
+          icon.classList.add('animate-spin');
+        }
+        setTimeout(() => {
+          window.location.reload();
+        }, 400);
+      }
     </script>
     {% block scripts %}{% endblock %}
   </body>

@@ -14,11 +14,18 @@
       <h2 class="text-sm font-bold text-gray-900">詳細情報</h2>
     </div>
     
-    <!-- お気に入りスター -->
-    <button onclick="toggleFavDetail(this, {{ club.id }})" 
-            class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-amber-500 cursor-pointer">
-      <i data-lucide="star" class="w-5 h-5 {% if club.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
-    </button>
+    <!-- アクションボタンエリア -->
+    <div class="flex items-center gap-1">
+      <button onclick="handleReload(this)" class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer" title="再読み込み">
+        <i data-lucide="rotate-cw" class="w-5 h-5"></i>
+      </button>
+
+      <!-- お気に入りスター -->
+      <button onclick="toggleFavDetail(this, {{ club.id }})" 
+              class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-amber-500 cursor-pointer">
+        <i data-lucide="star" class="w-5 h-5 {% if club.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
+      </button>
+    </div>
   </div>
 
   <!-- スクロール可能なメインコンテンツ -->
