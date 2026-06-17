@@ -154,6 +154,16 @@ def create_app(test_config=None):
             (club_id,)
         ).fetchall()
 
+        # 現在のログインユーザーの役職（role）を取得
+        user_role = None
+        if user_id:
+            user_member = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ?',
+                (club_id, user_id)
+            ).fetchone()
+            if user_member:
+                user_role = user_member['role']
+
         club_dict = dict(club)
         club_dict['is_favorite'] = bool(club_dict['is_favorite'])
 
@@ -162,7 +172,8 @@ def create_app(test_config=None):
             club=club_dict,
             borrow_info=borrow_info,
             reports=reports,
-            members=members
+            members=members,
+            user_role=user_role
         )
 
     # 鍵を借りる処理
@@ -422,14 +433,14 @@ def create_app(test_config=None):
 
         conn = db.get_db()
 
-        # サークルメンバーか確認
+        # サークルメンバーが部長または副部長か確認
         member = conn.execute(
-            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
             (club_id, student_id)
         ).fetchone()
 
         if not member:
-            flash(f'学籍番号 {student_id} はこのサークルに登録されていないため、報告書を提出できません。', 'error')
+            flash(f'学籍番号 {student_id} はこのサークルの部長または副部長として登録されていないため、報告書を提出できません。', 'error')
             return redirect(url_for('detail', club_id=club_id))
 
         try:
@@ -489,6 +500,10 @@ def create_app(test_config=None):
     # メンバー登録追加処理（引継ぎ設定用）
     @app.route('/club/<int:club_id>/add_member', methods=('POST',))
     def add_member(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'ログインが必要です。'}), 401
+
         student_id = request.form.get('student_id', '').strip().upper()
         name = request.form.get('name', '').strip()
 
@@ -497,6 +512,19 @@ def create_app(test_config=None):
 
         conn = db.get_db()
         
+        # 権限チェック：ログインユーザーが管理者(ADMIN)か、このサークルの部長または副部長か確認
+        is_leader = user_id == 'ADMIN'
+        if not is_leader:
+            leader = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+                (club_id, user_id)
+            ).fetchone()
+            if leader:
+                is_leader = True
+
+        if not is_leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長・副部長または管理者のみ実行可能です）。'}), 403
+
         # すでに登録されているか確認
         exists = conn.execute(
             'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
@@ -508,8 +536,8 @@ def create_app(test_config=None):
 
         try:
             conn.execute(
-                'INSERT INTO members (club_id, student_id, name) VALUES (?, ?, ?)',
-                (club_id, student_id, name)
+                'INSERT INTO members (club_id, student_id, name, role) VALUES (?, ?, ?, ?)',
+                (club_id, student_id, name, 'member')
             )
             conn.commit()
             return jsonify({'status': 'success', 'message': f'{name}さんをサークルメンバーとして登録しました！'})
@@ -529,6 +557,19 @@ def create_app(test_config=None):
             return jsonify({'status': 'error', 'message': '学籍番号が指定されていません。'}), 400
 
         conn = db.get_db()
+
+        # 権限チェック：ログインユーザーが管理者(ADMIN)か、このサークルの部長または副部長か確認
+        is_leader = user_id == 'ADMIN'
+        if not is_leader:
+            leader = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+                (club_id, user_id)
+            ).fetchone()
+            if leader:
+                is_leader = True
+
+        if not is_leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長・副部長または管理者のみ実行可能です）。'}), 403
         
         # メンバー情報の取得
         member = conn.execute(
@@ -566,6 +607,66 @@ def create_app(test_config=None):
             )
             conn.commit()
             return jsonify({'status': 'success', 'message': f'{member["name"]}さんのサークル登録を解除しました。'})
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
+
+    # メンバー役職変更処理
+    @app.route('/club/<int:club_id>/change_role', methods=('POST',))
+    def change_role(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'ログインが必要です。'}), 401
+
+        student_id = request.form.get('student_id', '').strip().upper()
+        new_role = request.form.get('role', '').strip()
+
+        if not student_id or not new_role:
+            return jsonify({'status': 'error', 'message': 'パラメータが不足しています。'}), 400
+
+        if new_role not in ['president', 'vice_president', 'member']:
+            return jsonify({'status': 'error', 'message': '無効な役職です。'}), 400
+
+        conn = db.get_db()
+
+        # 権限チェック：ログインユーザーが管理者(ADMIN)か、このサークルの部長または副部長か確認
+        is_leader = user_id == 'ADMIN'
+        if not is_leader:
+            leader = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+                (club_id, user_id)
+            ).fetchone()
+            if leader:
+                is_leader = True
+
+        if not is_leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長・副部長または管理者のみ実行可能です）。'}), 403
+
+        # 変更対象メンバーの存在確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, student_id)
+        ).fetchone()
+
+        if not member:
+            return jsonify({'status': 'error', 'message': '指定されたメンバーが見つかりません。'}), 404
+
+        try:
+            # もし新しい部長（president）を設定する場合、現在の部長（たち）の役職を一般部員（member）に変更する
+            if new_role == 'president':
+                conn.execute(
+                    'UPDATE members SET role = "member" WHERE club_id = ? AND role = "president"',
+                    (club_id,)
+                )
+
+            conn.execute(
+                'UPDATE members SET role = ? WHERE club_id = ? AND student_id = ?',
+                (new_role, club_id, student_id)
+            )
+            conn.commit()
+            
+            role_names = {'president': '部長', 'vice_president': '副部長', 'member': '一般部員'}
+            return jsonify({'status': 'success', 'message': f'{member["name"]}さんの役職を「{role_names[new_role]}」に変更しました。'})
         except Exception as e:
             conn.rollback()
             return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
@@ -706,5 +807,60 @@ def create_app(test_config=None):
             flash(f'設定保存中にエラーが発生しました: {str(e)}', 'error')
 
         return redirect(url_for('settings'))
+
+    # 管理者用ダッシュボード画面の表示
+    @app.route('/admin')
+    def admin_dashboard():
+        user_id = session.get('user_id')
+        if not user_id or user_id != 'ADMIN':
+            flash('管理者画面にアクセスするには、管理者アカウント（学籍番号: ADMIN）でのログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
+
+        conn = db.get_db()
+        
+        # 1. すべてのクラブと現在の貸出状況を取得
+        clubs = conn.execute(
+            '''
+            SELECT c.*,
+                   (SELECT student_name FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrower_name,
+                   (SELECT student_id FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrower_id,
+                   (SELECT borrowed_at FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrowed_at
+            FROM clubs c
+            ORDER BY c.room_number ASC
+            '''
+        ).fetchall()
+        
+        # 2. すべての活動報告書を取得
+        reports = conn.execute(
+            '''
+            SELECT r.*, c.name as club_name
+            FROM activity_reports r
+            JOIN clubs c ON r.club_id = c.id
+            ORDER BY r.created_at DESC
+            '''
+        ).fetchall()
+        
+        # 3. すべての部員と役職を取得
+        members = conn.execute(
+            '''
+            SELECT m.*, c.name as club_name
+            FROM members m
+            JOIN clubs c ON m.club_id = c.id
+            ORDER BY m.club_id ASC, 
+                     CASE m.role 
+                       WHEN 'president' THEN 1 
+                       WHEN 'vice_president' THEN 2 
+                       ELSE 3 
+                     END ASC, 
+                     m.student_id ASC
+            '''
+        ).fetchall()
+
+        return render_template(
+            'admin.html',
+            clubs=clubs,
+            reports=reports,
+            members=members
+        )
 
     return app
