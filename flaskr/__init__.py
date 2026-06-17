@@ -150,7 +150,38 @@ def create_app(test_config=None):
 
         # 登録メンバー一覧の取得（引継ぎ用）
         members = conn.execute(
-            'SELECT * FROM members WHERE club_id = ? ORDER BY student_id ASC',
+            '''
+            SELECT * FROM members 
+            WHERE club_id = ? 
+            ORDER BY CASE role 
+                       WHEN 'president' THEN 1 
+                       WHEN 'vice_president' THEN 2 
+                       ELSE 3 
+                     END ASC, 
+                     student_id ASC
+            ''',
+            (club_id,)
+        ).fetchall()
+
+        # ログインユーザーのこのサークルでの役職を取得
+        user_role = None
+        if user_id:
+            user_member = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ?',
+                (club_id, user_id)
+            ).fetchone()
+            if user_member:
+                user_role = user_member['role']
+
+        # 伝言板メッセージの取得 (新しい順)
+        messages = conn.execute(
+            '''
+            SELECT cm.*, m.role 
+            FROM club_messages cm
+            LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
+            WHERE cm.club_id = ? 
+            ORDER BY cm.created_at DESC
+            ''',
             (club_id,)
         ).fetchall()
 
@@ -162,7 +193,9 @@ def create_app(test_config=None):
             club=club_dict,
             borrow_info=borrow_info,
             reports=reports,
-            members=members
+            members=members,
+            user_role=user_role,
+            messages=messages
         )
 
     # 鍵を借りる処理
@@ -486,9 +519,13 @@ def create_app(test_config=None):
             conn.rollback()
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
-    # メンバー登録追加処理（引継ぎ設定用）
+    # メンバー登録追加処理（引継ぎ設定用・権限チェック付き）
     @app.route('/club/<int:club_id>/add_member', methods=('POST',))
     def add_member(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'ログインが必要です。'}), 401
+
         student_id = request.form.get('student_id', '').strip().upper()
         name = request.form.get('name', '').strip()
 
@@ -496,7 +533,16 @@ def create_app(test_config=None):
             return jsonify({'status': 'error', 'message': 'すべての項目を入力してください。'}), 400
 
         conn = db.get_db()
-        
+
+        # 権限チェック：ログインユーザーがこのサークルの部長または副部長か確認
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
+
+        if not leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長または副部長のみ実行可能です）。'}), 403
+
         # すでに登録されているか確認
         exists = conn.execute(
             'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
@@ -508,7 +554,7 @@ def create_app(test_config=None):
 
         try:
             conn.execute(
-                'INSERT INTO members (club_id, student_id, name) VALUES (?, ?, ?)',
+                'INSERT INTO members (club_id, student_id, name, role) VALUES (?, ?, ?, "member")',
                 (club_id, student_id, name)
             )
             conn.commit()
@@ -517,7 +563,7 @@ def create_app(test_config=None):
             conn.rollback()
             return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
 
-    # メンバー登録解除処理（引継ぎ設定用・30日ロック付き）
+    # メンバー登録解除処理（引継ぎ設定用・30日ロック ＆ 権限チェック付き）
     @app.route('/club/<int:club_id>/remove_member', methods=('POST',))
     def remove_member(club_id):
         user_id = session.get('user_id')
@@ -529,6 +575,15 @@ def create_app(test_config=None):
             return jsonify({'status': 'error', 'message': '学籍番号が指定されていません。'}), 400
 
         conn = db.get_db()
+
+        # 権限チェック：ログインユーザーがこのサークルの部長または副部長か確認
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
+
+        if not leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長または副部長のみ実行可能です）。'}), 403
         
         # メンバー情報の取得
         member = conn.execute(
@@ -566,6 +621,62 @@ def create_app(test_config=None):
             )
             conn.commit()
             return jsonify({'status': 'success', 'message': f'{member["name"]}さんのサークル登録を解除しました。'})
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
+
+    # メンバー役職変更処理
+    @app.route('/club/<int:club_id>/change_role', methods=('POST',))
+    def change_role(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'ログインが必要です。'}), 401
+
+        student_id = request.form.get('student_id', '').strip().upper()
+        new_role = request.form.get('role', '').strip()
+
+        if not student_id or not new_role:
+            return jsonify({'status': 'error', 'message': 'パラメータが不足しています。'}), 400
+
+        if new_role not in ['president', 'vice_president', 'member']:
+            return jsonify({'status': 'error', 'message': '無効な役職です。'}), 400
+
+        conn = db.get_db()
+
+        # 権限チェック：ログインユーザーがこのサークルの部長または副部長か確認
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
+
+        if not leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長または副部長のみ実行可能です）。'}), 403
+
+        # 変更対象メンバーの存在確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, student_id)
+        ).fetchone()
+
+        if not member:
+            return jsonify({'status': 'error', 'message': '指定されたメンバーが見つかりません。'}), 404
+
+        try:
+            # もし新しい部長（president）を設定する場合、現在の部長の役職を一般部員（member）に変更する
+            if new_role == 'president':
+                conn.execute(
+                    'UPDATE members SET role = "member" WHERE club_id = ? AND role = "president"',
+                    (club_id,)
+                )
+
+            conn.execute(
+                'UPDATE members SET role = ? WHERE club_id = ? AND student_id = ?',
+                (new_role, club_id, student_id)
+            )
+            conn.commit()
+            
+            role_names = {'president': '部長', 'vice_president': '副部長', 'member': '一般部員'}
+            return jsonify({'status': 'success', 'message': f'{member["name"]}さんの役職を「{role_names[new_role]}」に変更しました。'})
         except Exception as e:
             conn.rollback()
             return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
@@ -706,5 +817,88 @@ def create_app(test_config=None):
             flash(f'設定保存中にエラーが発生しました: {str(e)}', 'error')
 
         return redirect(url_for('settings'))
+
+    # 伝言板メッセージ投稿処理
+    @app.route('/club/<int:club_id>/message', methods=('POST',))
+    def post_message(club_id):
+        user_id = session.get('user_id')
+        user_name = session.get('user_name')
+        if not user_id:
+            flash('メッセージを投稿するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=url_for('detail', club_id=club_id)))
+
+        content = request.form.get('content', '').strip()
+        if not content:
+            flash('メッセージ内容を入力してください。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        conn = db.get_db()
+        
+        # セキュリティ：操作ユーザーが該当サークルの部員であるか確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, user_id)
+        ).fetchone()
+
+        if not member:
+            flash('メッセージを投稿するには、このサークルのメンバーである必要があります。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        try:
+            conn.execute(
+                'INSERT INTO club_messages (club_id, student_id, sender_name, content) VALUES (?, ?, ?, ?)',
+                (club_id, user_id, user_name, content)
+            )
+            conn.commit()
+            flash('メッセージを投稿しました！', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'メッセージ投稿中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
+
+    # 伝言板メッセージ削除処理
+    @app.route('/club/<int:club_id>/delete_message/<int:message_id>', methods=('POST',))
+    def delete_message(club_id, message_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('メッセージを削除するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=url_for('detail', club_id=club_id)))
+
+        conn = db.get_db()
+        
+        # メッセージ情報の取得
+        message = conn.execute(
+            'SELECT * FROM club_messages WHERE id = ? AND club_id = ?',
+            (message_id, club_id)
+        ).fetchone()
+
+        if not message:
+            flash('削除対象のメッセージが見つかりません。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        # 権限チェック: 投稿者本人か、または部長・副部長か
+        is_authorized = message['student_id'] == user_id
+        if not is_authorized:
+            leader = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+                (club_id, user_id)
+            ).fetchone()
+            if leader:
+                is_authorized = True
+
+        if not is_authorized:
+            flash('メッセージを削除する権限がありません（投稿者本人または部長・副部長のみ削除可能です）。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        try:
+            conn.execute('DELETE FROM club_messages WHERE id = ?', (message_id,))
+            conn.commit()
+            flash('メッセージを削除しました。', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'メッセージ削除中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
 
     return app

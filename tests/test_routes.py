@@ -338,6 +338,157 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.get_json()['status'], 'success')
 
+    def test_leader_management_permission(self):
+        """部長・副部長以外のメンバーによる管理操作の制限をテスト"""
+        # 1. ログインしていない状態での追加・削除・役職変更は401エラーになるはず
+        rv = self.client.post('/club/1/add_member', data={
+            'student_id': 'S2023999',
+            'name': 'テスト ユーザー'
+        })
+        self.assertEqual(rv.status_code, 401)
+
+        rv = self.client.post('/club/1/remove_member', data={
+            'student_id': 'S2023002'
+        })
+        self.assertEqual(rv.status_code, 401)
+
+        rv = self.client.post('/club/1/change_role', data={
+            'student_id': 'S2023002',
+            'role': 'president'
+        })
+        self.assertEqual(rv.status_code, 401)
+
+        # 2. 部長(佐藤 太陽 S2023001)でログインして、テスト一般部員を追加
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        rv = self.client.post('/club/1/add_member', data={
+            'student_id': 'S2023999',
+            'name': 'テスト 一般部員'
+        })
+        self.assertEqual(rv.status_code, 200)
+
+        # 3. 追加した一般部員 (S2023999) でログイン
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023999'
+            sess['user_name'] = 'テスト 一般部員'
+
+        # 一般部員がメンバーを追加しようとすると403エラーになるはず
+        rv = self.client.post('/club/1/add_member', data={
+            'student_id': 'S2023998',
+            'name': 'テスト ユーザー'
+        })
+        self.assertEqual(rv.status_code, 403)
+        self.assertIn("メンバー管理権限がありません", rv.get_json()['message'])
+
+        # 一般部員がメンバーを削除しようとすると403エラーになるはず
+        rv = self.client.post('/club/1/remove_member', data={
+            'student_id': 'S2023002'
+        })
+        self.assertEqual(rv.status_code, 403)
+        self.assertIn("メンバー管理権限がありません", rv.get_json()['message'])
+
+        # 一般部員が役職を変更しようとすると403エラーになるはず
+        rv = self.client.post('/club/1/change_role', data={
+            'student_id': 'S2023002',
+            'role': 'president'
+        })
+        self.assertEqual(rv.status_code, 403)
+        self.assertIn("メンバー管理権限がありません", rv.get_json()['message'])
+
+    def test_change_member_role_success(self):
+        """部長による役職変更の成功と引き継ぎ（ハンドオーバー）をテスト"""
+        # 囲碁将棋部(ID:1)の部長である佐藤 太陽 (S2023001) でログイン
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        # 鈴木 美咲 (S2023002) を部長(president)に変更する
+        # このとき、元の部長である佐藤 太陽が一般部員に自動降格されることを確認する
+        rv = self.client.post('/club/1/change_role', data={
+            'student_id': 'S2023002',
+            'role': 'president'
+        })
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.get_json()['status'], 'success')
+
+        # データベースの状態を確認する
+        with self.app.app_context():
+            from flaskr.db import get_db
+            db_conn = get_db()
+            sato = db_conn.execute('SELECT role FROM members WHERE student_id = "S2023001" AND club_id = 1').fetchone()
+            suzuki = db_conn.execute('SELECT role FROM members WHERE student_id = "S2023002" AND club_id = 1').fetchone()
+            self.assertEqual(sato['role'], 'member')
+            self.assertEqual(suzuki['role'], 'president')
+
+    def test_club_messages_permission_and_deletion(self):
+        """伝言板メッセージの投稿・削除・権限チェックをテスト"""
+        # 1. 未ログインでの投稿はログイン画面へリダイレクト
+        rv = self.client.post('/club/1/message', data={'content': 'こんにちは'})
+        self.assertEqual(rv.status_code, 302)
+        self.assertIn('/login', rv.location)
+
+        # 2. ログインするが、部外者のサークルへの投稿は拒否されることの検証
+        # 佐藤太陽 (Club 1) が Club 2 へ投稿
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+        rv = self.client.post('/club/2/message', data={'content': '部外者からのメッセージ'}, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('このサークルのメンバーである必要があります', rv.data.decode('utf-8'))
+
+        # 3. 部員 (鈴木 美咲 Club 1) でログインして、正当なメッセージを投稿
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023002'
+            sess['user_name'] = '鈴木 美咲'
+        rv = self.client.post('/club/1/message', data={'content': '忘れ物を見つけました！'}, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('忘れ物を見つけました！', rv.data.decode('utf-8'))
+
+        # データベースからメッセージIDを取得
+        with self.app.app_context():
+            from flaskr.db import get_db
+            db_conn = get_db()
+            msg = db_conn.execute('SELECT * FROM club_messages WHERE content = "忘れ物を見つけました！"').fetchone()
+            self.assertIsNotNone(msg)
+            msg_id = msg['id']
+
+        # 4. 別サークルのメンバー (高橋 蓮 Club 2) でログインして、鈴木のメッセージを削除しようとすると拒否されることの検証
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023003'
+            sess['user_name'] = '高橋 蓮'
+        rv = self.client.post(f'/club/1/delete_message/{msg_id}', follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('メッセージを削除する権限がありません', rv.data.decode('utf-8'))
+
+        # 5. 投稿者本人 (鈴木 美咲 S2023002) が削除できることを検証
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023002'
+            sess['user_name'] = '鈴木 美咲'
+        rv = self.client.post(f'/club/1/delete_message/{msg_id}', follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('メッセージを削除しました', rv.data.decode('utf-8'))
+
+        # 6. 部員 (鈴木 美咲) が新たに投稿したメッセージを、部長 (佐藤 太陽) が削除できることを検証
+        # 再投稿
+        rv = self.client.post('/club/1/message', data={'content': '二回目の投稿'}, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        
+        with self.app.app_context():
+            from flaskr.db import get_db
+            db_conn_new = get_db()
+            msg2 = db_conn_new.execute('SELECT * FROM club_messages WHERE content = "二回目の投稿"').fetchone()
+            msg2_id = msg2['id']
+
+        # 部長 (佐藤 太陽 S2023001) でログインして削除
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+        rv = self.client.post(f'/club/1/delete_message/{msg2_id}', follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('メッセージを削除しました', rv.data.decode('utf-8'))
+
 
 if __name__ == '__main__':
     unittest.main()
