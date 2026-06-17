@@ -61,6 +61,7 @@ CREATE TABLE club_messages (
   student_id TEXT NOT NULL,
   sender_name TEXT NOT NULL,
   content TEXT NOT NULL,
+  is_private INTEGER NOT NULL DEFAULT 0, -- 0: 公開, 1: 非公開 (部内限定)
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (club_id) REFERENCES clubs (id)
 );

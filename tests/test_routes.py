@@ -489,6 +489,55 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         self.assertIn('メッセージを削除しました', rv.data.decode('utf-8'))
 
+    def test_club_messages_visibility(self):
+        """伝言板メッセージの公開(public)・非公開(private)の表示制限テスト"""
+        # 1. ログインして、部員(佐藤 太陽, Club 1 のメンバー)として公開メッセージと非公開メッセージを投稿
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        # 公開メッセージを投稿 (is_private=0)
+        rv = self.client.post('/club/1/message', data={
+            'content': 'これは公開メッセージです',
+            'is_private': '0'
+        }, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+
+        # 非公開メッセージを投稿 (is_private=1)
+        rv = self.client.post('/club/1/message', data={
+            'content': 'これは部内限定メッセージです',
+            'is_private': '1'
+        }, follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+
+        # 2. 部員 (佐藤 太陽) が Club 1 の詳細画面を表示したとき、両方のメッセージが表示されることを検証
+        rv = self.client.get('/club/1')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn('これは公開メッセージです', html)
+        self.assertIn('これは部内限定メッセージです', html)
+        self.assertIn('部内限定', html) 
+
+        # 3. ログアウトして（＝非会員）、Club 1 の詳細画面を表示したとき、公開メッセージのみが表示され、非公開メッセージが表示されないことを検証
+        self.client.get('/logout')
+        rv = self.client.get('/club/1')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn('これは公開メッセージです', html)
+        self.assertNotIn('これは部内限定メッセージです', html)
+
+        # 4. 別サークルの会員 (高橋 蓮 Club 2 のメンバー) でログインし、Club 1 の詳細画面を表示したとき、
+        # 公開メッセージのみが表示され、非公開メッセージが表示されないことを検証
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023003'
+            sess['user_name'] = '高橋 蓮'
+        rv = self.client.get('/club/1')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn('これは公開メッセージです', html)
+        self.assertNotIn('これは部内限定メッセージです', html)
+
 
 if __name__ == '__main__':
     unittest.main()
+

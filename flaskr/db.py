@@ -144,16 +144,16 @@ def init_db():
             (club_id, reporter_name, student_id, report_date, desc)
         )
 
-    # 6. 伝言板メッセージ (Club Messages) の初期データ
+    # 6. 伝言板メッセージ (Club Messages) の初期データ (is_private: 0=公開, 1=非公開)
     messages_data = [
-        (1, "S2023001", "佐藤 太陽", "部室のホワイトボードの横に傘を忘れました。見つけた方は教えてください！"),
-        (1, "S2023002", "鈴木 美咲", "了解です！今度部室に行ったときに確認してみますね。"),
-        (2, "S2023003", "高橋 蓮", "部室のルーターの設定を変更しました。SSIDとパスワードは引き継ぎ用の資料に記載してあります。")
+        (1, "S2023001", "佐藤 太陽", "部室のホワイトボードの横に傘を忘れました。見つけた方は教えてください！", 0),
+        (1, "S2023002", "鈴木 美咲", "了解です！今度部室に行ったときに確認してみますね。", 1),
+        (2, "S2023003", "高橋 蓮", "部室のルーターの設定を変更しました。SSIDとパスワードは引き継ぎ用の資料に記載してあります。", 1)
     ]
-    for club_id, student_id, sender_name, content in messages_data:
+    for club_id, student_id, sender_name, content, is_private in messages_data:
         db.execute(
-            "INSERT INTO club_messages (club_id, student_id, sender_name, content) VALUES (?, ?, ?, ?)",
-            (club_id, student_id, sender_name, content)
+            "INSERT INTO club_messages (club_id, student_id, sender_name, content, is_private) VALUES (?, ?, ?, ?, ?)",
+            (club_id, student_id, sender_name, content, is_private)
         )
 
     db.commit()

@@ -173,17 +173,29 @@ def create_app(test_config=None):
             if user_member:
                 user_role = user_member['role']
 
-        # 伝言板メッセージの取得 (新しい順)
-        messages = conn.execute(
-            '''
-            SELECT cm.*, m.role 
-            FROM club_messages cm
-            LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
-            WHERE cm.club_id = ? 
-            ORDER BY cm.created_at DESC
-            ''',
-            (club_id,)
-        ).fetchall()
+        # 伝言板メッセージの取得 (新しい順。部員でなければ公開(is_private=0)のみ表示)
+        if user_role is not None:
+            messages = conn.execute(
+                '''
+                SELECT cm.*, m.role 
+                FROM club_messages cm
+                LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
+                WHERE cm.club_id = ? 
+                ORDER BY cm.created_at DESC
+                ''',
+                (club_id,)
+            ).fetchall()
+        else:
+            messages = conn.execute(
+                '''
+                SELECT cm.*, m.role 
+                FROM club_messages cm
+                LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
+                WHERE cm.club_id = ? AND cm.is_private = 0
+                ORDER BY cm.created_at DESC
+                ''',
+                (club_id,)
+            ).fetchall()
 
         club_dict = dict(club)
         club_dict['is_favorite'] = bool(club_dict['is_favorite'])
@@ -828,6 +840,8 @@ def create_app(test_config=None):
             return redirect(url_for('login', next=url_for('detail', club_id=club_id)))
 
         content = request.form.get('content', '').strip()
+        is_private = 1 if request.form.get('is_private') in ('1', 'on') else 0
+
         if not content:
             flash('メッセージ内容を入力してください。', 'error')
             return redirect(url_for('detail', club_id=club_id))
@@ -846,8 +860,8 @@ def create_app(test_config=None):
 
         try:
             conn.execute(
-                'INSERT INTO club_messages (club_id, student_id, sender_name, content) VALUES (?, ?, ?, ?)',
-                (club_id, user_id, user_name, content)
+                'INSERT INTO club_messages (club_id, student_id, sender_name, content, is_private) VALUES (?, ?, ?, ?, ?)',
+                (club_id, user_id, user_name, content, is_private)
             )
             conn.commit()
             flash('メッセージを投稿しました！', 'success')
