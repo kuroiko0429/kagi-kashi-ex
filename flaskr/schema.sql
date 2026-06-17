@@ -20,7 +20,6 @@ CREATE TABLE members (
   student_id TEXT NOT NULL,
   name TEXT NOT NULL,
   club_id INTEGER NOT NULL,
-  role TEXT NOT NULL DEFAULT 'member', -- 'president' (部長), 'vice_president' (副部長), 'member' (一般部員)
   registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 新規追加: サークル登録日 (退部制限用)
   FOREIGN KEY (club_id) REFERENCES clubs (id)
 );
