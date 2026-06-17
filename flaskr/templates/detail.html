@@ -412,7 +412,7 @@
   }
 
   function toggleFavDetail(btn, clubId) {
-    const icon = btn.querySelector('i');
+    const icon = btn.querySelector('[data-lucide="star"]') || btn.querySelector('svg') || btn.querySelector('i');
     
     fetch(`/club/${clubId}/favorite`, {
       method: 'POST',

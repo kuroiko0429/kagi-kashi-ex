@@ -33,6 +33,12 @@ def create_app(test_config=None):
             'current_user_name': session.get('user_name'),
         }
 
+    # キャッシュ無効化設定
+    @app.after_request
+    def add_header(response):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        return response
+
     # ログインページ
     @app.route('/login', methods=('GET', 'POST'))
     def login():

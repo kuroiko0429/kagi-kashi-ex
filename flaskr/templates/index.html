@@ -96,6 +96,8 @@
           <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
             {% for key in keys if key.category == 'sports' %}
               <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
+                   data-id="{{ key.id }}"
+                   data-favorite="{{ 'true' if key.is_favorite else 'false' }}"
                    data-name="{{ key.name }}"
                    data-room="{{ key.room_number }}"
                    data-status="{{ key.status }}">
@@ -206,6 +208,8 @@
           <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
             {% for key in keys if key.category == 'cultural' %}
               <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
+                   data-id="{{ key.id }}"
+                   data-favorite="{{ 'true' if key.is_favorite else 'false' }}"
                    data-name="{{ key.name }}"
                    data-room="{{ key.room_number }}"
                    data-status="{{ key.status }}">
@@ -305,6 +309,8 @@
           <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
             {% for key in keys if key.category == 'association' %}
               <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
+                   data-id="{{ key.id }}"
+                   data-favorite="{{ 'true' if key.is_favorite else 'false' }}"
                    data-name="{{ key.name }}"
                    data-room="{{ key.room_number }}"
                    data-status="{{ key.status }}">
@@ -525,7 +531,7 @@
   }
 
   function toggleFav(btn, clubId) {
-    const icon = btn.querySelector('i');
+    const icon = btn.querySelector('[data-lucide="star"]') || btn.querySelector('svg') || btn.querySelector('i');
     
     fetch(`/club/${clubId}/favorite`, {
       method: 'POST',
@@ -542,7 +548,38 @@
     })
     .then(data => {
       if (data.status === 'success') {
-        location.reload();
+        const card = btn.closest('.club-card');
+        
+        if (data.is_favorite) {
+          icon.classList.add('fill-amber-400', 'text-amber-400');
+          if (card) card.setAttribute('data-favorite', 'true');
+          showToast('success', data.message);
+        } else {
+          icon.classList.remove('fill-amber-400', 'text-amber-400');
+          if (card) card.setAttribute('data-favorite', 'false');
+          showToast('info', data.message);
+        }
+
+        // Re-sort cards inside the container dynamically
+        if (card) {
+          const container = card.parentElement;
+          const cards = Array.from(container.querySelectorAll('.club-card'));
+          
+          cards.sort((a, b) => {
+            const favA = a.getAttribute('data-favorite') === 'true';
+            const favB = b.getAttribute('data-favorite') === 'true';
+            
+            if (favA !== favB) {
+              return favB ? 1 : -1; // Favorites at the top
+            }
+            
+            const idA = parseInt(a.getAttribute('data-id'));
+            const idB = parseInt(b.getAttribute('data-id'));
+            return idA - idB; // Original ID ordering
+          });
+          
+          cards.forEach(c => container.appendChild(c));
+        }
       }
     })
     .catch(err => {
