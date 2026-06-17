@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google アカウントでログイン</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+  <div class="bg-white border border-gray-250/80 rounded-2xl shadow-md w-full max-w-[440px] p-8 flex flex-col min-h-[500px] justify-between">
+    <div>
+      <!-- Google Logo Text -->
+      <div class="flex justify-center items-center font-bold text-2xl tracking-tight select-none mb-6">
+        <span class="text-blue-600">G</span>
+        <span class="text-red-500">o</span>
+        <span class="text-yellow-500">o</span>
+        <span class="text-blue-600">g</span>
+        <span class="text-green-500">l</span>
+        <span class="text-red-500">e</span>
+      </div>
+      
+      <!-- Titles -->
+      <div class="text-center mb-8">
+        <h1 class="text-2xl font-normal text-gray-900 mb-2">アカウントの選択</h1>
+        <p class="text-sm text-gray-600"><span class="font-bold text-indigo-650">Kagi-Kashi</span> に進む</p>
+      </div>
+
+      <!-- Account List -->
+      <div id="account-chooser" class="flex flex-col border-b border-gray-200 mb-4">
+        <!-- 佐藤 太陽 -->
+        <a href="{{ url_for('google_callback', email='s2023001@do-johodai.ac.jp', name='佐藤 太陽', next=next_url) }}" 
+           class="flex items-center gap-3 py-3.5 px-2 hover:bg-gray-50 border-t border-gray-200 transition-colors">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+            佐
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-sm font-bold text-gray-800">佐藤 太陽</span>
+            <span class="text-xs text-gray-500">s2023001@do-johodai.ac.jp</span>
+          </div>
+        </a>
+        
+        <!-- 鈴木 美咲 -->
+        <a href="{{ url_for('google_callback', email='s2023002@do-johodai.ac.jp', name='鈴木 美咲', next=next_url) }}" 
+           class="flex items-center gap-3 py-3.5 px-2 hover:bg-gray-50 border-t border-gray-200 transition-colors">
+          <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold text-sm">
+            鈴
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-sm font-bold text-gray-800">鈴木 美咲</span>
+            <span class="text-xs text-gray-500">s2023002@do-johodai.ac.jp</span>
+          </div>
+        </a>
+
+        <!-- 高橋 蓮 -->
+        <a href="{{ url_for('google_callback', email='s2023003@do-johodai.ac.jp', name='高橋 蓮', next=next_url) }}" 
+           class="flex items-center gap-3 py-3.5 px-2 hover:bg-gray-50 border-t border-gray-200 transition-colors">
+          <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-sm">
+            高
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-sm font-bold text-gray-800">高橋 蓮</span>
+            <span class="text-xs text-gray-500">s2023003@do-johodai.ac.jp</span>
+          </div>
+        </a>
+
+        <!-- Use another account -->
+        <button onclick="showCustomAccountForm()" class="flex items-center gap-3 py-4 px-2 hover:bg-gray-50 border-t border-gray-200 transition-colors text-left w-full cursor-pointer">
+          <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+          </div>
+          <span class="text-sm font-bold text-blue-650">別のアカウントを使用</span>
+        </button>
+      </div>
+
+      <!-- Custom Account Form (Hidden by default) -->
+      <form id="custom-account-form" action="{{ url_for('google_callback') }}" method="GET" class="hidden flex flex-col gap-4">
+        <input type="hidden" name="next" value="{{ next_url }}" />
+        
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-bold text-gray-500">大学メールアドレス (@do-johodai.ac.jp)</label>
+          <input type="email" id="custom-email" name="email" required placeholder="s2023999@do-johodai.ac.jp"
+                 class="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-300" />
+          <p id="email-error" class="text-[10px] text-red-600 hidden mt-1">このアカウントは使用できません。@do-johodai.ac.jp のメールアドレスを入力してください。</p>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-bold text-gray-500">氏名</label>
+          <input type="text" id="custom-name" name="name" required placeholder="情報 太郎"
+                 class="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-300" />
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+          <button type="button" onclick="hideCustomAccountForm()" class="text-xs font-bold text-blue-650 hover:underline">戻る</button>
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition-all cursor-pointer">次へ</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Bottom links -->
+    <div class="flex justify-between items-center text-[10px] text-gray-400 mt-6 pt-4 border-t border-gray-100">
+      <span>日本語</span>
+      <div class="flex gap-3">
+        <a href="#" class="hover:underline">ヘルプ</a>
+        <a href="#" class="hover:underline">プライバシー</a>
+        <a href="#" class="hover:underline">利用規約</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showCustomAccountForm() {
+      document.getElementById('account-chooser').classList.add('hidden');
+      document.getElementById('custom-account-form').classList.remove('hidden');
+      document.querySelector('h1').innerText = 'ログイン';
+    }
+
+    function hideCustomAccountForm() {
+      document.getElementById('account-chooser').classList.remove('hidden');
+      document.getElementById('custom-account-form').classList.add('hidden');
+      document.querySelector('h1').innerText = 'アカウントの選択';
+      document.getElementById('email-error').classList.add('hidden');
+      document.getElementById('custom-email').classList.remove('border-red-500');
+    }
+
+    document.getElementById('custom-account-form').onsubmit = function(e) {
+      const email = document.getElementById('custom-email').value.trim().toLowerCase();
+      if (!email.endsWith('@do-johodai.ac.jp')) {
+        e.preventDefault();
+        document.getElementById('email-error').classList.remove('hidden');
+        document.getElementById('custom-email').classList.add('border-red-500');
+        return false;
+      }
+    };
+  </script>
+</body>
+</html>

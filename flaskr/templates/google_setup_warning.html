@@ -1,0 +1,71 @@
+{% extends 'layout.html' %}
+
+{% block title %}Google認証設定エラー | Kagi-Kashi{% endblock %}
+
+{% block content %}
+<div class="flex-grow flex flex-col justify-between p-6 bg-white overflow-y-auto no-scrollbar">
+  
+  <!-- ヘッダー -->
+  <div class="flex items-center gap-3 pt-4">
+    <a href="{{ url_for('login', next=next_url) }}" class="p-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all active:scale-95">
+      <i data-lucide="chevron-left" class="w-5 h-5"></i>
+    </a>
+    <h2 class="text-sm font-bold text-gray-800">Googleログイン設定</h2>
+  </div>
+
+  <!-- 中央フォーム -->
+  <div class="my-auto flex flex-col gap-5 py-4">
+    <div class="flex flex-col items-center text-center gap-2">
+      <div class="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shadow-sm">
+        <i data-lucide="shield-alert" class="w-6 h-6 text-amber-500"></i>
+      </div>
+      <div>
+        <h1 class="text-base font-bold text-gray-950">Google OAuth認証の構成が必要</h1>
+        <p class="text-[10px] text-gray-400 mt-0.5">安全なGoogle Sign-Inを実行するには、認証キーの登録が必要です。</p>
+      </div>
+    </div>
+
+    <!-- 手順説明カード -->
+    <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col gap-3 text-xs leading-relaxed text-gray-650">
+      <p class="font-bold text-gray-800">🔑 設定手順:</p>
+      <ol class="list-decimal list-inside flex flex-col gap-2">
+        <li>
+          <a href="https://console.cloud.google.com/" target="_blank" class="text-indigo-650 font-bold hover:underline inline-flex items-center gap-0.5">
+            Google Cloud Console
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a> にアクセスし、新規プロジェクトを作成します。
+        </li>
+        <li>
+          「APIとサービス」 &gt; 「OAuth同意画面」を構成し、ドメイン制限などを設定します。
+        </li>
+        <li>
+          「認証情報」から「OAuth 2.0 クライアント ID」を作成し、**承認済みのリダイレクト URI** に以下を登録します：
+          <div class="bg-gray-100 p-2 rounded-lg font-mono text-[9px] text-gray-600 mt-1 select-all break-all">
+            http://127.0.0.1:5000/google_callback
+          </div>
+        </li>
+        <li>
+          プロジェクトのルートディレクトリに `.env` ファイルを作成し、取得したキーを記述します：
+          <pre class="bg-gray-100 p-2 rounded-lg font-mono text-[9px] text-gray-600 mt-1 select-all">
+GOOGLE_CLIENT_ID=【あなたのクライアントID】
+GOOGLE_CLIENT_SECRET=【あなたのクライアントシークレット】</pre>
+        </li>
+        <li>
+          Flaskアプリケーションを再起動します。
+        </li>
+      </ol>
+    </div>
+
+    <a href="{{ url_for('login', next=next_url) }}" 
+       class="w-full py-3 text-center rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-95 transition-all cursor-pointer">
+      ログイン画面に戻る
+    </a>
+  </div>
+
+  <!-- フッター -->
+  <div class="text-center pt-4 border-t border-gray-50">
+    <p class="text-[9px] text-gray-400">&copy; Hokkaido Information University</p>
+  </div>
+
+</div>
+{% endblock %}

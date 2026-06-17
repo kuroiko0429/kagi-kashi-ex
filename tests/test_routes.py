@@ -537,7 +537,146 @@ class KagiKashiTestCase(unittest.TestCase):
         self.assertIn('これは公開メッセージです', html)
         self.assertNotIn('これは部内限定メッセージです', html)
 
+    def test_activity_report_export(self):
+        """活動報告のExcel/CSV出力機能をテスト"""
+        # 1. 未ログインでのアクセスはログイン画面へリダイレクトされることを確認
+        rv = self.client.get('/club/1/export_report')
+        self.assertEqual(rv.status_code, 302)
+
+        # 2. ログインする（部員：佐藤 太陽）
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 'S2023001'
+            sess['user_name'] = '佐藤 太陽'
+
+        # 3. テスト用の貸出履歴と活動報告を登録する
+        import datetime
+        now = datetime.datetime.now()
+        current_month = now.strftime("%Y-%m")
+        today_str = now.strftime("%Y-%m-%d")
+
+        # 鍵借用と返却のレコードを登録
+        with self.app.app_context():
+            from flaskr.db import get_db
+            db_conn = get_db()
+            db_conn.execute(
+                '''
+                INSERT INTO borrow_records (club_id, student_id, student_name, key_number, borrowed_at, returned_at)
+                VALUES (1, 'S2023001', '佐藤 太陽', 'K-401', ?, ?)
+                ''',
+                (f"{today_str} 10:00:00", f"{today_str} 12:00:00")
+            )
+            # 活動報告を登録
+            db_conn.execute(
+                '''
+                INSERT INTO activity_reports (club_id, reporter_name, student_id, report_date, description)
+                VALUES (1, '佐藤 太陽', 'S2023001', ?, '本日の活動報告です。')
+                ''',
+                (today_str,)
+            )
+            db_conn.commit()
+
+        # 4. エクスポートを実行し、CSVがダウンロードできることを検証
+        rv = self.client.get(f'/club/1/export_report?month={current_month}')
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.mimetype, 'text/csv')
+        
+        # CSVの内容にBOM、ヘッダー、挿入したデータが含まれているか検証
+        data_str = rv.data.decode('utf-8')
+        self.assertTrue(data_str.startswith('\ufeff')) # UTF-8 BOM
+        self.assertIn('日付,曜日,開始時間,終了時間,活動時間(時間),担当者,活動内容', data_str)
+        self.assertIn(today_str, data_str)
+        self.assertIn('10:00,12:00,2.0,佐藤 太陽,本日の活動報告です。', data_str)
+
+    @unittest.mock.patch('urllib.request.urlopen')
+    def test_google_login_flow(self, mock_urlopen):
+        """Googleログインの流れをテスト"""
+        # 1. ログイン画面に「Googleでログイン」ボタンが存在することを確認
+        rv = self.client.get('/login')
+        self.assertEqual(rv.status_code, 200)
+        html = rv.data.decode('utf-8')
+        self.assertIn('Googleでログイン', html)
+        self.assertIn('@do-johodai.ac.jp', html)
+
+        # 2. 環境変数未設定時に /google_login が警告画面を表示することを確認
+        import os
+        old_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        old_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        old_mock = os.environ.get('GOOGLE_MOCK_LOGIN')
+        
+        if 'GOOGLE_CLIENT_ID' in os.environ: del os.environ['GOOGLE_CLIENT_ID']
+        if 'GOOGLE_CLIENT_SECRET' in os.environ: del os.environ['GOOGLE_CLIENT_SECRET']
+        if 'GOOGLE_MOCK_LOGIN' in os.environ: del os.environ['GOOGLE_MOCK_LOGIN']
+        
+        rv = self.client.get('/google_login?next=/club/1')
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('Google OAuth認証の構成が必要', rv.data.decode('utf-8'))
+
+        # 3. GOOGLE_MOCK_LOGIN=true の場合にモック画面へリダイレクトすることを確認
+        os.environ['GOOGLE_MOCK_LOGIN'] = 'true'
+        rv = self.client.get('/google_login?next=/club/1')
+        self.assertEqual(rv.status_code, 302)
+        self.assertIn('/mock_google_signin', rv.location)
+
+        # 4. モックログイン画面の表示を確認
+        rv = self.client.get('/mock_google_signin?next=/club/1')
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('アカウントの選択', rv.data.decode('utf-8'))
+
+        # 5. モックログイン成功を確認
+        rv = self.client.get('/google_callback?email=s2023001@do-johodai.ac.jp&name=佐藤 太陽&next=/club/1', follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('佐藤 太陽', rv.data.decode('utf-8'))
+        
+        # 6. モックログイン失敗（無効なドメイン）を確認
+        self.client.get('/logout')
+        rv = self.client.get('/google_callback?email=test@gmail.com&name=テストユーザー&next=/club/1', follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('北海道情報大学のGoogleアカウント（@do-johodai.ac.jp）のみ使用可能です。', rv.data.decode('utf-8'))
+
+        # 7. 実際の Google OAuth 2.0 フロー（実キー設定時）を検証
+        os.environ['GOOGLE_CLIENT_ID'] = 'test-client-id'
+        os.environ['GOOGLE_CLIENT_SECRET'] = 'test-client-secret'
+        os.environ['GOOGLE_MOCK_LOGIN'] = 'false'
+        
+        # /google_login が Google の認可 URL へリダイレクトすることを確認
+        rv = self.client.get('/google_login?next=/club/1')
+        self.assertEqual(rv.status_code, 302)
+        self.assertIn('https://accounts.google.com/o/oauth2/v2/auth', rv.location)
+
+        # 8. コールバック処理（実コード受信、トークン取得、プロフィール取得）のモック検証
+        import json
+        
+        # Token endpoint response mock
+        mock_token_res = unittest.mock.MagicMock()
+        mock_token_res.__enter__.return_value = mock_token_res
+        mock_token_res.read.return_value = json.dumps({
+            'access_token': 'fake-access-token'
+        }).encode('utf-8')
+        
+        # Userinfo endpoint response mock
+        mock_userinfo_res = unittest.mock.MagicMock()
+        mock_userinfo_res.__enter__.return_value = mock_userinfo_res
+        mock_userinfo_res.read.return_value = json.dumps({
+            'email': 's2023002@do-johodai.ac.jp',
+            'name': '鈴木 美咲'
+        }).encode('utf-8')
+        
+        mock_urlopen.side_effect = [mock_token_res, mock_userinfo_res]
+        
+        # 実際の callback エンドポイントを実行
+        rv = self.client.get('/google_callback?code=valid-code&state=/club/1', follow_redirects=True)
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn('鈴木 美咲', rv.data.decode('utf-8'))
+        self.assertIn('Googleアカウント (s2023002@do-johodai.ac.jp) でログインしました。', rv.data.decode('utf-8'))
+
+        # 環境変数を元に戻す
+        if old_client_id: os.environ['GOOGLE_CLIENT_ID'] = old_client_id
+        if old_client_secret: os.environ['GOOGLE_CLIENT_SECRET'] = old_client_secret
+        if old_mock: os.environ['GOOGLE_MOCK_LOGIN'] = old_mock
+
 
 if __name__ == '__main__':
     unittest.main()
+
+
 
