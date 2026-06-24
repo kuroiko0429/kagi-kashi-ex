@@ -680,7 +680,7 @@ def create_app(test_config=None):
 
         if not report_date or not description:
             flash('すべての項目を入力してください。', 'error')
-            return redirect(url_for('detail', club_id=club_id))
+            return redirect(url_for('club_admin', club_id=club_id))
 
         conn = db.get_db()
 
@@ -692,7 +692,12 @@ def create_app(test_config=None):
 
         if not member:
             flash('このサークルに登録されていないため、報告書を提出できません。', 'error')
-            return redirect(url_for('detail', club_id=club_id))
+            return redirect(url_for('club_admin', club_id=club_id))
+
+        # 権限チェック：部長・副部長のみ提出可
+        if member['role'] not in ('president', 'vice_president'):
+            flash('活動報告書の提出は部長・副部長のみ行えます。', 'error')
+            return redirect(url_for('club_admin', club_id=club_id))
 
         reporter_name = member['name']
 
@@ -710,7 +715,71 @@ def create_app(test_config=None):
             conn.rollback()
             flash(f'活動報告提出中にエラーが発生しました: {str(e)}', 'error')
 
-        return redirect(url_for('detail', club_id=club_id))
+        return redirect(url_for('club_admin', club_id=club_id))
+
+    # 管理者画面（部長・副部長専用）
+    @app.route('/club/<int:club_id>/admin')
+    def club_admin(club_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('管理者画面にアクセスするにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
+
+        conn = db.get_db()
+        club = conn.execute('SELECT * FROM clubs WHERE id = ?', (club_id,)).fetchone()
+        if not club:
+            flash('指定されたサークルが見つかりません。', 'error')
+            return redirect(url_for('index'))
+
+        # 権限チェック：部長・副部長のみアクセス可
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
+        if not leader:
+            flash('管理者画面は部長・副部長のみアクセスできます。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        user_role = leader['role']
+
+        reports = conn.execute(
+            'SELECT * FROM activity_reports WHERE club_id = ? ORDER BY created_at DESC',
+            (club_id,)
+        ).fetchall()
+
+        members = conn.execute(
+            '''
+            SELECT * FROM members WHERE club_id = ?
+            ORDER BY CASE role
+                       WHEN 'president' THEN 1
+                       WHEN 'vice_president' THEN 2
+                       ELSE 3
+                     END ASC, student_id ASC
+            ''',
+            (club_id,)
+        ).fetchall()
+
+        import datetime
+        now = datetime.datetime.now()
+        export_months = []
+        year, month = now.year, now.month
+        for _ in range(12):
+            export_months.append(f"{year:04d}-{month:02d}")
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+        current_month = now.strftime("%Y-%m")
+
+        return render_template(
+            'admin.html',
+            club=dict(club),
+            user_role=user_role,
+            reports=reports,
+            members=members,
+            export_months=export_months,
+            current_month=current_month,
+        )
 
     # 活動報告エクスポート処理（CSVダウンロード）
     @app.route('/club/<int:club_id>/export_report')
