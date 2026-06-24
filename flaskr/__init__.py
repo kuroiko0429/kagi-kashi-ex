@@ -62,6 +62,167 @@ def create_app(test_config=None):
 
         return render_template('login.html')
 
+    # Load .env manually if present
+    def load_dotenv():
+        import os
+        if os.path.exists('.env'):
+            try:
+                with open('.env', encoding='utf-8') as f:
+                    for line in f:
+                        if line.strip() and not line.strip().startswith('#'):
+                            parts = line.strip().split('=', 1)
+                            if len(parts) == 2:
+                                k = parts[0].strip()
+                                v = parts[1].strip()
+                                if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                                    v = v[1:-1]
+                                os.environ[k] = v
+            except Exception:
+                pass
+
+    # Googleログイン転送
+    @app.route('/google_login')
+    def google_login():
+        load_dotenv()
+        import os
+        next_url = request.args.get('next', '')
+        
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        mock_login = os.environ.get('GOOGLE_MOCK_LOGIN', 'false').lower() == 'true'
+        
+        if not client_id or not client_secret:
+            if mock_login:
+                return redirect(url_for('mock_google_signin', next=next_url))
+            else:
+                return render_template('google_setup_warning.html', next_url=next_url)
+            
+        # 実際の Google OAuth 2.0 認可リクエスト
+        import urllib.parse
+        redirect_uri = url_for('google_callback', _external=True)
+        
+        params = {
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'state': next_url,
+            'hd': 'do-johodai.ac.jp', # Google側でドメインを情報大に固定
+            'prompt': 'select_account'
+        }
+        
+        auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+        return redirect(auth_url)
+
+    # Googleアカウント選択モック画面（開発・検証用）
+    @app.route('/mock_google_signin')
+    def mock_google_signin():
+        load_dotenv()
+        import os
+        next_url = request.args.get('next', '')
+        mock_login = os.environ.get('GOOGLE_MOCK_LOGIN', 'false').lower() == 'true'
+        
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        if not mock_login and (not client_id or not client_secret):
+            return render_template('google_setup_warning.html', next_url=next_url)
+            
+        return render_template('mock_google_signin.html', next_url=next_url)
+
+    # Googleログイン後のコールバック処理
+    @app.route('/google_callback')
+    def google_callback():
+        load_dotenv()
+        import os
+        code = request.args.get('code')
+        state = request.args.get('state', '') # next_url
+        error = request.args.get('error')
+        
+        if error:
+            flash(f'Googleログインエラー: {error}', 'error')
+            return redirect(url_for('login', next=state))
+
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        mock_login = os.environ.get('GOOGLE_MOCK_LOGIN', 'false').lower() == 'true'
+
+        if not code:
+            if mock_login or (not client_id or not client_secret):
+                # モックログインの直接パラメータ取得
+                email = request.args.get('email', '').strip().lower()
+                name = request.args.get('name', '').strip()
+                next_url = request.args.get('next', '')
+            else:
+                flash('不正なリクエストです。認証コードが見つかりません。', 'error')
+                return redirect(url_for('login', next=state))
+        else:
+            # 実際の Google OAuth コードとアクセストークンの交換
+            import urllib.request
+            import urllib.parse
+            import json
+            
+            redirect_uri = url_for('google_callback', _external=True)
+            
+            token_url = "https://oauth2.googleapis.com/token"
+            data = urllib.parse.urlencode({
+                'code': code,
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'redirect_uri': redirect_uri,
+                'grant_type': 'authorization_code'
+            }).encode('utf-8')
+            
+            try:
+                req = urllib.request.Request(token_url, data=data, headers={
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                })
+                with urllib.request.urlopen(req) as res:
+                    token_data = json.loads(res.read().decode('utf-8'))
+                    
+                access_token = token_data.get('access_token')
+                
+                # アクセストークンを使ってユーザー情報を取得
+                userinfo_url = "https://openidconnect.googleapis.com/v1/userinfo"
+                req_user = urllib.request.Request(userinfo_url, headers={
+                    'Authorization': f'Bearer {access_token}'
+                })
+                with urllib.request.urlopen(req_user) as res_user:
+                    user_info = json.loads(res_user.read().decode('utf-8'))
+                    
+                email = user_info.get('email', '').strip().lower()
+                name = user_info.get('name', '').strip()
+                next_url = state
+            except Exception as e:
+                flash(f'Google認証情報の取得中にエラーが発生しました: {str(e)}', 'error')
+                return redirect(url_for('login', next=state))
+
+        # @do-johodai.ac.jp ドメイン制限チェック
+        if not email.endswith('@do-johodai.ac.jp'):
+            flash('北海道情報大学のGoogleアカウント（@do-johodai.ac.jp）のみ使用可能です。', 'error')
+            return redirect(url_for('login', next=next_url))
+
+        # 学籍番号をEメールから抽出（例: s2023001 -> S2023001）
+        student_id = email.split('@')[0].upper()
+
+        conn = db.get_db()
+        member = conn.execute(
+            'SELECT name FROM members WHERE student_id = ? LIMIT 1',
+            (student_id,)
+        ).fetchone()
+
+        if member:
+            display_name = member['name']
+        else:
+            display_name = name if name else "ゲスト学生"
+
+        session['user_id'] = student_id
+        session['user_name'] = display_name
+        session['user_email'] = email
+        session['is_google_login'] = True
+
+        flash(f'Googleアカウント ({email}) でログインしました。', 'success')
+        return redirect(next_url or url_for('index'))
+
     # ログアウトページ
     @app.route('/logout')
     def logout():
@@ -150,11 +311,20 @@ def create_app(test_config=None):
 
         # 登録メンバー一覧の取得（引継ぎ用）
         members = conn.execute(
-            'SELECT * FROM members WHERE club_id = ? ORDER BY student_id ASC',
+            '''
+            SELECT * FROM members 
+            WHERE club_id = ? 
+            ORDER BY CASE role 
+                       WHEN 'president' THEN 1 
+                       WHEN 'vice_president' THEN 2 
+                       ELSE 3 
+                     END ASC, 
+                     student_id ASC
+            ''',
             (club_id,)
         ).fetchall()
 
-        # 現在のログインユーザーの役職（role）を取得
+        # ログインユーザーのこのサークルでの役職を取得
         user_role = None
         if user_id:
             user_member = conn.execute(
@@ -164,8 +334,46 @@ def create_app(test_config=None):
             if user_member:
                 user_role = user_member['role']
 
+        # 伝言板メッセージの取得 (新しい順。部員でなければ公開(is_private=0)のみ表示)
+        if user_role is not None:
+            messages = conn.execute(
+                '''
+                SELECT cm.*, m.role 
+                FROM club_messages cm
+                LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
+                WHERE cm.club_id = ? 
+                ORDER BY cm.created_at DESC
+                ''',
+                (club_id,)
+            ).fetchall()
+        else:
+            messages = conn.execute(
+                '''
+                SELECT cm.*, m.role 
+                FROM club_messages cm
+                LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
+                WHERE cm.club_id = ? AND cm.is_private = 0
+                ORDER BY cm.created_at DESC
+                ''',
+                (club_id,)
+            ).fetchall()
+
         club_dict = dict(club)
         club_dict['is_favorite'] = bool(club_dict['is_favorite'])
+
+        # エクスポート可能な月一覧の生成（直近12ヶ月分）
+        import datetime
+        now = datetime.datetime.now()
+        export_months = []
+        year = now.year
+        month = now.month
+        for _ in range(12):
+            export_months.append(f"{year:04d}-{month:02d}")
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+        current_month = now.strftime("%Y-%m")
 
         return render_template(
             'detail.html',
@@ -173,7 +381,10 @@ def create_app(test_config=None):
             borrow_info=borrow_info,
             reports=reports,
             members=members,
-            user_role=user_role
+            user_role=user_role,
+            messages=messages,
+            export_months=export_months,
+            current_month=current_month
         )
 
     # 鍵を借りる処理
@@ -433,14 +644,14 @@ def create_app(test_config=None):
 
         conn = db.get_db()
 
-        # サークルメンバーが部長または副部長か確認
+        # サークルメンバーか確認
         member = conn.execute(
-            'SELECT * FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
             (club_id, student_id)
         ).fetchone()
 
         if not member:
-            flash(f'学籍番号 {student_id} はこのサークルの部長または副部長として登録されていないため、報告書を提出できません。', 'error')
+            flash(f'学籍番号 {student_id} はこのサークルに登録されていないため、報告書を提出できません。', 'error')
             return redirect(url_for('detail', club_id=club_id))
 
         try:
@@ -463,6 +674,153 @@ def create_app(test_config=None):
             flash(f'活動報告提出中にエラーが発生しました: {str(e)}', 'error')
 
         return redirect(url_for('detail', club_id=club_id))
+
+    # 活動報告エクスポート処理（CSVダウンロード）
+    @app.route('/club/<int:club_id>/export_report')
+    def export_report(club_id):
+        # セキュリティ：ログイン必須チェック
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('報告書をエクスポートするにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
+
+        conn = db.get_db()
+        # サークルの存在確認
+        club = conn.execute(
+            'SELECT * FROM clubs WHERE id = ?', (club_id,)
+        ).fetchone()
+        if not club:
+            flash('指定されたサークルが見つかりません。', 'error')
+            return redirect(url_for('index'))
+
+        # 対象月（デフォルト：当月）
+        import datetime
+        current_month = datetime.datetime.now().strftime("%Y-%m")
+        selected_month = request.args.get('month', current_month).strip()
+
+        # 鍵貸出履歴の取得（対象月で返却済みのもの）
+        borrows = conn.execute(
+            '''
+            SELECT id, student_id, student_name, key_number, borrowed_at, returned_at,
+                   date(borrowed_at) as b_date
+            FROM borrow_records
+            WHERE club_id = ? AND strftime('%Y-%m', borrowed_at) = ? AND returned_at IS NOT NULL
+            ORDER BY borrowed_at ASC
+            ''',
+            (club_id, selected_month)
+        ).fetchall()
+
+        # # 活動報告の取得（対象月）
+        reports = conn.execute(
+            '''
+            SELECT id, reporter_name, student_id, report_date, description
+            FROM activity_reports
+            WHERE club_id = ? AND substr(report_date, 1, 7) = ?
+            ORDER BY report_date ASC
+            ''',
+            (club_id, selected_month)
+        ).fetchall()
+
+        from collections import defaultdict
+        
+        # 鍵貸出履歴を日付ごとにグループ化
+        borrows_by_date = defaultdict(list)
+        for b in borrows:
+            borrows_by_date[b['b_date']].append(b)
+
+        # 活動報告を日付ごとにグループ化
+        reports_by_date = defaultdict(list)
+        for r in reports:
+            reports_by_date[r['report_date']].append(r)
+
+        # 全日付の結合
+        all_dates = sorted(list(set(borrows_by_date.keys()) | set(reports_by_date.keys())))
+
+        days_ja = ["月", "火", "水", "木", "金", "土", "日"]
+        rows = []
+
+        for d_str in all_dates:
+            try:
+                dt = datetime.datetime.strptime(d_str, "%Y-%m-%d")
+                day_of_week = days_ja[dt.weekday()]
+            except Exception:
+                day_of_week = ""
+
+            day_borrows = borrows_by_date[d_str]
+            day_reports = reports_by_date[d_str]
+
+            num_rows = max(len(day_borrows), len(day_reports), 1)
+            for i in range(num_rows):
+                b = day_borrows[i] if i < len(day_borrows) else None
+                r = day_reports[i] if i < len(day_reports) else None
+
+                start_time = ""
+                end_time = ""
+                duration = ""
+                reporter = ""
+                description = ""
+
+                if b:
+                    try:
+                        b_dt = b['borrowed_at']
+                        r_dt = b['returned_at']
+                        if isinstance(b_dt, str):
+                            # if it's stored/returned as a string
+                            b_dt = datetime.datetime.strptime(b_dt, "%Y-%m-%d %H:%M:%S")
+                        if isinstance(r_dt, str):
+                            r_dt = datetime.datetime.strptime(r_dt, "%Y-%m-%d %H:%M:%S")
+                        
+                        start_time = b_dt.strftime("%H:%M")
+                        end_time = r_dt.strftime("%H:%M")
+                        diff = r_dt - b_dt
+                        duration = f"{diff.total_seconds() / 3600:.1f}"
+                    except Exception:
+                        start_time = str(b['borrowed_at'])
+                        end_time = str(b['returned_at'])
+                    
+                    reporter = b['student_name']
+
+                if r:
+                    if not reporter:
+                        reporter = r['reporter_name']
+                    description = r['description']
+
+                rows.append([
+                    d_str,
+                    day_of_week,
+                    start_time,
+                    end_time,
+                    duration,
+                    reporter,
+                    description
+                ])
+
+        import csv
+        import io
+        from flask import Response
+
+        output = io.StringIO()
+        # UTF-8 BOMを追加
+        output.write('\ufeff')
+
+        writer = csv.writer(output)
+        writer.writerow(['日付', '曜日', '開始時間', '終了時間', '活動時間(時間)', '担当者', '活動内容'])
+        
+        for row in rows:
+            writer.writerow(row)
+
+        csv_data = output.getvalue()
+        
+        club_name = club['name']
+        filename = f"activity_report_{club_name}_{selected_month}.csv"
+        
+        from urllib.parse import quote
+        encoded_filename = quote(filename)
+
+        response = Response(csv_data, mimetype='text/csv')
+        response.headers['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
+        return response
+
 
     # お気に入りトグルAPI（非同期AJAX用）
     @app.route('/club/<int:club_id>/favorite', methods=('POST',))
@@ -497,7 +855,7 @@ def create_app(test_config=None):
             conn.rollback()
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
-    # メンバー登録追加処理（引継ぎ設定用）
+    # メンバー登録追加処理（引継ぎ設定用・権限チェック付き）
     @app.route('/club/<int:club_id>/add_member', methods=('POST',))
     def add_member(club_id):
         user_id = session.get('user_id')
@@ -511,19 +869,15 @@ def create_app(test_config=None):
             return jsonify({'status': 'error', 'message': 'すべての項目を入力してください。'}), 400
 
         conn = db.get_db()
-        
-        # 権限チェック：ログインユーザーが管理者(ADMIN)か、このサークルの部長または副部長か確認
-        is_leader = user_id == 'ADMIN'
-        if not is_leader:
-            leader = conn.execute(
-                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
-                (club_id, user_id)
-            ).fetchone()
-            if leader:
-                is_leader = True
 
-        if not is_leader:
-            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長・副部長または管理者のみ実行可能です）。'}), 403
+        # 権限チェック：ログインユーザーがこのサークルの部長または副部長か確認
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
+
+        if not leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長または副部長のみ実行可能です）。'}), 403
 
         # すでに登録されているか確認
         exists = conn.execute(
@@ -536,8 +890,8 @@ def create_app(test_config=None):
 
         try:
             conn.execute(
-                'INSERT INTO members (club_id, student_id, name, role) VALUES (?, ?, ?, ?)',
-                (club_id, student_id, name, 'member')
+                'INSERT INTO members (club_id, student_id, name, role) VALUES (?, ?, ?, "member")',
+                (club_id, student_id, name)
             )
             conn.commit()
             return jsonify({'status': 'success', 'message': f'{name}さんをサークルメンバーとして登録しました！'})
@@ -545,7 +899,7 @@ def create_app(test_config=None):
             conn.rollback()
             return jsonify({'status': 'error', 'message': f'エラーが発生しました: {str(e)}'}), 500
 
-    # メンバー登録解除処理（引継ぎ設定用・30日ロック付き）
+    # メンバー登録解除処理（引継ぎ設定用・30日ロック ＆ 権限チェック付き）
     @app.route('/club/<int:club_id>/remove_member', methods=('POST',))
     def remove_member(club_id):
         user_id = session.get('user_id')
@@ -558,18 +912,14 @@ def create_app(test_config=None):
 
         conn = db.get_db()
 
-        # 権限チェック：ログインユーザーが管理者(ADMIN)か、このサークルの部長または副部長か確認
-        is_leader = user_id == 'ADMIN'
-        if not is_leader:
-            leader = conn.execute(
-                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
-                (club_id, user_id)
-            ).fetchone()
-            if leader:
-                is_leader = True
+        # 権限チェック：ログインユーザーがこのサークルの部長または副部長か確認
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
 
-        if not is_leader:
-            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長・副部長または管理者のみ実行可能です）。'}), 403
+        if not leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長または副部長のみ実行可能です）。'}), 403
         
         # メンバー情報の取得
         member = conn.execute(
@@ -629,18 +979,14 @@ def create_app(test_config=None):
 
         conn = db.get_db()
 
-        # 権限チェック：ログインユーザーが管理者(ADMIN)か、このサークルの部長または副部長か確認
-        is_leader = user_id == 'ADMIN'
-        if not is_leader:
-            leader = conn.execute(
-                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
-                (club_id, user_id)
-            ).fetchone()
-            if leader:
-                is_leader = True
+        # 権限チェック：ログインユーザーがこのサークルの部長または副部長か確認
+        leader = conn.execute(
+            'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+            (club_id, user_id)
+        ).fetchone()
 
-        if not is_leader:
-            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長・副部長または管理者のみ実行可能です）。'}), 403
+        if not leader:
+            return jsonify({'status': 'error', 'message': 'メンバー管理権限がありません（部長または副部長のみ実行可能です）。'}), 403
 
         # 変更対象メンバーの存在確認
         member = conn.execute(
@@ -652,7 +998,7 @@ def create_app(test_config=None):
             return jsonify({'status': 'error', 'message': '指定されたメンバーが見つかりません。'}), 404
 
         try:
-            # もし新しい部長（president）を設定する場合、現在の部長（たち）の役職を一般部員（member）に変更する
+            # もし新しい部長（president）を設定する場合、現在の部長の役職を一般部員（member）に変更する
             if new_role == 'president':
                 conn.execute(
                     'UPDATE members SET role = "member" WHERE club_id = ? AND role = "president"',
@@ -808,59 +1154,89 @@ def create_app(test_config=None):
 
         return redirect(url_for('settings'))
 
-    # 管理者用ダッシュボード画面の表示
-    @app.route('/admin')
-    def admin_dashboard():
+    # 伝言板メッセージ投稿処理
+    @app.route('/club/<int:club_id>/message', methods=('POST',))
+    def post_message(club_id):
         user_id = session.get('user_id')
-        if not user_id or user_id != 'ADMIN':
-            flash('管理者画面にアクセスするには、管理者アカウント（学籍番号: ADMIN）でのログインが必要です。', 'error')
-            return redirect(url_for('login', next=request.path))
+        user_name = session.get('user_name')
+        if not user_id:
+            flash('メッセージを投稿するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=url_for('detail', club_id=club_id)))
+
+        content = request.form.get('content', '').strip()
+        is_private = 1 if request.form.get('is_private') in ('1', 'on') else 0
+
+        if not content:
+            flash('メッセージ内容を入力してください。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
 
         conn = db.get_db()
         
-        # 1. すべてのクラブと現在の貸出状況を取得
-        clubs = conn.execute(
-            '''
-            SELECT c.*,
-                   (SELECT student_name FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrower_name,
-                   (SELECT student_id FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrower_id,
-                   (SELECT borrowed_at FROM borrow_records br WHERE br.club_id = c.id AND br.returned_at IS NULL LIMIT 1) as borrowed_at
-            FROM clubs c
-            ORDER BY c.room_number ASC
-            '''
-        ).fetchall()
-        
-        # 2. すべての活動報告書を取得
-        reports = conn.execute(
-            '''
-            SELECT r.*, c.name as club_name
-            FROM activity_reports r
-            JOIN clubs c ON r.club_id = c.id
-            ORDER BY r.created_at DESC
-            '''
-        ).fetchall()
-        
-        # 3. すべての部員と役職を取得
-        members = conn.execute(
-            '''
-            SELECT m.*, c.name as club_name
-            FROM members m
-            JOIN clubs c ON m.club_id = c.id
-            ORDER BY m.club_id ASC, 
-                     CASE m.role 
-                       WHEN 'president' THEN 1 
-                       WHEN 'vice_president' THEN 2 
-                       ELSE 3 
-                     END ASC, 
-                     m.student_id ASC
-            '''
-        ).fetchall()
+        # セキュリティ：操作ユーザーが該当サークルの部員であるか確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, user_id)
+        ).fetchone()
 
-        return render_template(
-            'admin.html',
-            clubs=clubs,
-            reports=reports,
-            members=members
-        )
+        if not member:
+            flash('メッセージを投稿するには、このサークルのメンバーである必要があります。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        try:
+            conn.execute(
+                'INSERT INTO club_messages (club_id, student_id, sender_name, content, is_private) VALUES (?, ?, ?, ?, ?)',
+                (club_id, user_id, user_name, content, is_private)
+            )
+            conn.commit()
+            flash('メッセージを投稿しました！', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'メッセージ投稿中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
+
+    # 伝言板メッセージ削除処理
+    @app.route('/club/<int:club_id>/delete_message/<int:message_id>', methods=('POST',))
+    def delete_message(club_id, message_id):
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('メッセージを削除するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=url_for('detail', club_id=club_id)))
+
+        conn = db.get_db()
+        
+        # メッセージ情報の取得
+        message = conn.execute(
+            'SELECT * FROM club_messages WHERE id = ? AND club_id = ?',
+            (message_id, club_id)
+        ).fetchone()
+
+        if not message:
+            flash('削除対象のメッセージが見つかりません。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        # 権限チェック: 投稿者本人か、または部長・副部長か
+        is_authorized = message['student_id'] == user_id
+        if not is_authorized:
+            leader = conn.execute(
+                'SELECT role FROM members WHERE club_id = ? AND student_id = ? AND role IN ("president", "vice_president")',
+                (club_id, user_id)
+            ).fetchone()
+            if leader:
+                is_authorized = True
+
+        if not is_authorized:
+            flash('メッセージを削除する権限がありません（投稿者本人または部長・副部長のみ削除可能です）。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
+        try:
+            conn.execute('DELETE FROM club_messages WHERE id = ?', (message_id,))
+            conn.commit()
+            flash('メッセージを削除しました。', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'メッセージ削除中にエラーが発生しました: {str(e)}', 'error')
+
+        return redirect(url_for('detail', club_id=club_id))
 
     return app

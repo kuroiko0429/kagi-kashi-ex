@@ -96,17 +96,20 @@
       {% endif %}
     </div>
 
-    <!-- 3つの機能切替タブボタン -->
+    <!-- 4つの機能切替タブボタン -->
     <div class="mt-4">
-      <div class="flex bg-gray-100 border border-gray-200 rounded-xl p-0.5 select-none text-[10px] font-bold text-gray-500">
+      <div class="flex bg-gray-100 border border-gray-200 rounded-xl p-0.5 select-none text-[9px] font-bold text-gray-500">
         <button onclick="switchDetailTab('lend')" id="dtab-lend" class="flex-1 py-2 rounded-lg text-center transition-all bg-white text-gray-900 shadow-sm cursor-pointer">
-          鍵貸出・返却
+          鍵貸出
         </button>
         <button onclick="switchDetailTab('status')" id="dtab-status" class="flex-1 py-2 rounded-lg text-center hover:text-gray-900 transition-all cursor-pointer">
           状況変更
         </button>
         <button onclick="switchDetailTab('reports')" id="dtab-reports" class="flex-1 py-2 rounded-lg text-center hover:text-gray-900 transition-all cursor-pointer">
           活動報告
+        </button>
+        <button onclick="switchDetailTab('messages')" id="dtab-messages" class="flex-1 py-2 rounded-lg text-center hover:text-gray-900 transition-all cursor-pointer">
+          伝言板
         </button>
       </div>
     </div>
@@ -224,64 +227,73 @@
 
     <!-- タブコンテンツ 3: 活動報告 -->
     <div id="content-reports" class="mt-5 hidden flex flex-col gap-4">
-      
-      {% if user_role in ['president', 'vice_president'] %}
-        <!-- 報告書投稿フォーム (アコーディオン) -->
-        <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
-          <button onclick="toggleAccordion('report-form-panel')" class="w-full px-4 py-3 flex items-center justify-between text-gray-700 hover:text-gray-900 cursor-pointer select-none">
-            <div class="flex items-center gap-1.5">
-              <i data-lucide="plus-circle" class="w-4 h-4 text-gray-500"></i>
-              <span class="text-xs font-bold">新規活動報告書を作成</span>
-            </div>
-            <i data-lucide="chevron-down" id="accordion-arrow" class="w-4 h-4 transition-transform"></i>
+
+      <!-- 活動報告のエクセル（CSV）エクスポート -->
+      <div class="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex flex-col gap-2.5 shadow-sm">
+        <div class="flex items-center gap-1.5 text-indigo-950 font-bold text-xs">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-650"></i>
+          活動報告書のダウンロード
+        </div>
+        <p class="text-[10px] text-gray-500 leading-normal">
+          鍵の貸出履歴（活動時間）と活動報告（内容）を自動でマッチングし、Excel等で開けるCSVファイルとしてエクスポートします。
+        </p>
+        <form action="{{ url_for('export_report', club_id=club.id) }}" method="GET" class="flex gap-2 items-center">
+          <select name="month" class="flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 cursor-pointer text-gray-700">
+            {% for m in export_months %}
+              <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="bg-indigo-650 hover:bg-indigo-750 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer select-none">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+            出力する
           </button>
-
-          <div id="report-form-panel" class="hidden px-4 pb-4 pt-0.5 border-t border-gray-200/60 flex flex-col gap-3 bg-white">
-            <form action="{{ url_for('submit_report', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
-              <div class="flex flex-col gap-0.5">
-                <label class="text-[9px] font-bold text-gray-400 ml-1">報告者学籍番号</label>
-                <input type="text" name="student_id" placeholder="S2023001" required
-                       value="{{ current_user_id or '' }}"
-                       class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase" />
-              </div>
-
-              <div class="flex flex-col gap-0.5">
-                <label class="text-[9px] font-bold text-gray-400 ml-1">報告者氏名</label>
-                <input type="text" name="reporter_name" placeholder="佐藤 太陽" required
-                       value="{{ current_user_name or '' }}"
-                       class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-              </div>
-
-              <div class="flex flex-col gap-0.5">
-                <label class="text-[9px] font-bold text-gray-400 ml-1">活動日</label>
-                <input type="date" name="report_date" id="report_date_input" required
-                       class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-              </div>
-
-              <div class="flex flex-col gap-0.5">
-                <label class="text-[9px] font-bold text-gray-400 ml-1">活動内容</label>
-                <textarea name="description" placeholder="活動した内容をご記入ください。" rows="3" required
-                          class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"></textarea>
-              </div>
-
-              <button type="submit" class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all mt-1 cursor-pointer">
-                報告書を提出する
-              </button>
-            </form>
+        </form>
+      </div>
+      
+      <!-- 報告書投稿フォーム (アコーディオン) -->
+      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
+        <button onclick="toggleAccordion('report-form-panel')" class="w-full px-4 py-3 flex items-center justify-between text-gray-700 hover:text-gray-900 cursor-pointer select-none">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-xs font-bold">新規活動報告書を作成</span>
           </div>
+          <i data-lucide="chevron-down" id="accordion-arrow" class="w-4 h-4 transition-transform"></i>
+        </button>
+
+        <div id="report-form-panel" class="hidden px-4 pb-4 pt-0.5 border-t border-gray-200/60 flex flex-col gap-3">
+          <form action="{{ url_for('submit_report', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者学籍番号</label>
+              <input type="text" name="student_id" placeholder="S2023001" required
+                     value="{{ current_user_id or '' }}"
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者氏名</label>
+              <input type="text" name="reporter_name" placeholder="佐藤 太陽" required
+                     value="{{ current_user_name or '' }}"
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">活動日</label>
+              <input type="date" name="report_date" id="report_date_input" required
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">活動内容</label>
+              <textarea name="description" placeholder="活動した内容をご記入ください。" rows="3" required
+                        class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"></textarea>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all mt-1 cursor-pointer">
+              報告書を提出する
+            </button>
+          </form>
         </div>
-      {% else %}
-        <div class="p-4 rounded-xl border border-rose-200 bg-rose-50/30 text-center text-xs">
-          <p class="text-[10px] text-rose-500 font-bold flex items-center justify-center gap-1">
-            <i data-lucide="shield-alert" class="w-4 h-4"></i>
-            <span>活動報告書提出制限</span>
-          </p>
-          <p class="text-[9px] text-gray-500 mt-1 leading-relaxed">
-            活動報告書の作成・提出はサークルの部長または副部長のみ行えます。<br>
-            現在のログインアカウントには報告書の作成権限がありません。
-          </p>
-        </div>
-      {% endif %}
+      </div>
 
       <!-- 活動報告タイムライン -->
       <div class="flex flex-col gap-3 mt-1">
@@ -298,17 +310,6 @@
                     <span class="text-[9px] text-gray-400 font-mono">{{ report.report_date }}</span>
                   </div>
                   <p class="text-gray-600 leading-normal break-all">{{ report.description }}</p>
-                  
-                  {% if user_role in ['president', 'vice_president'] %}
-                    <div class="flex justify-end border-t border-gray-200/40 pt-1.5 mt-1">
-                      <button type="button" 
-                              onclick="openMailDraftModal('{{ club.name }}', '{{ report.report_date }}', '{{ report.reporter_name }}', '{{ report.student_id }}', '{{ report.description|replace("\'", "\\\'")|replace("\"", "\\\"")|replace("\n", "\\n") }}')"
-                              class="inline-flex items-center gap-1 text-[8px] font-bold text-indigo-650 hover:text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded cursor-pointer transition-all active:scale-95">
-                        <i data-lucide="mail-forward" class="w-3 h-3"></i>
-                        <span>メール下書き表示</span>
-                      </button>
-                    </div>
-                  {% endif %}
                 </div>
               </div>
             {% endfor %}
@@ -316,6 +317,99 @@
         {% else %}
           <div class="p-6 text-center rounded-2xl bg-gray-50 border border-gray-200 text-[10px] text-gray-400">
             活動報告はありません。
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- タブコンテンツ 4: 伝言板 -->
+    <div id="content-messages" class="mt-5 hidden flex flex-col gap-4">
+      
+      <!-- メッセージ投稿フォーム -->
+      {% if user_role %}
+        <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex flex-col gap-3">
+          <h3 class="text-xs font-bold text-gray-800 flex items-center gap-1.5 select-none">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-gray-500"></i>
+            新規伝言メッセージを投稿
+          </h3>
+          <form action="{{ url_for('post_message', club_id=club.id) }}" method="POST" class="flex flex-col gap-2">
+            <textarea name="content" placeholder="サークルメンバーへ伝える伝言を入力してください。" rows="3" required
+                      class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"></textarea>
+            
+            <!-- 公開・非公開の選択ラジオボタン -->
+            <div class="flex items-center justify-between px-1 py-1.5 border-b border-gray-100 mb-1">
+              <label class="text-[9px] font-bold text-gray-400 select-none">公開範囲</label>
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-1 text-[10px] text-gray-650 cursor-pointer font-bold select-none">
+                  <input type="radio" name="is_private" value="0" checked class="w-3.5 h-3.5 text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer" />
+                  <span>公開 (誰でも見れる)</span>
+                </label>
+                <label class="flex items-center gap-1 text-[10px] text-gray-650 cursor-pointer font-bold select-none">
+                  <input type="radio" name="is_private" value="1" class="w-3.5 h-3.5 text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer" />
+                  <span>非公開 (部内限定)</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>投稿する</span>
+            </button>
+          </form>
+        </div>
+      {% else %}
+        <div class="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/60 text-amber-800 text-[10px] leading-relaxed select-none">
+          ※ メッセージの投稿は、ログイン中のサークルメンバーのみ行えます。
+        </div>
+      {% endif %}
+
+      <!-- メッセージ一覧 -->
+      <div class="flex flex-col gap-3 mt-1">
+        <h3 class="text-xs font-bold text-gray-700 ml-1 select-none">伝言一覧</h3>
+        
+        {% if messages %}
+          <div class="flex flex-col gap-3">
+            {% for msg in messages %}
+              <div class="p-3.5 rounded-2xl bg-white border border-gray-200/80 shadow-sm flex flex-col gap-2 text-xs">
+                <div class="flex justify-between items-start border-b border-gray-100 pb-1.5 flex-wrap gap-1">
+                  <div class="flex flex-col gap-0.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="font-bold text-gray-800">{{ msg.sender_name }}</span>
+                      {% if msg.role == 'president' %}
+                        <span class="px-1 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[8px] font-bold text-indigo-650">部長</span>
+                      {% elif msg.role == 'vice_president' %}
+                        <span class="px-1 py-0.5 rounded bg-amber-50 border border-amber-100 text-[8px] font-bold text-amber-650">副部長</span>
+                      {% endif %}
+                      
+                      <!-- 非公開（部内限定）バッジ -->
+                      {% if msg.is_private %}
+                        <span class="px-1.5 py-0.5 rounded bg-rose-50 border border-rose-100 text-[8px] font-bold text-rose-650 flex items-center gap-0.5 select-none">
+                          <i data-lucide="lock" class="w-2.5 h-2.5"></i>
+                          部内限定
+                        </span>
+                      {% endif %}
+                    </div>
+                    <span class="text-[9px] text-gray-400 font-mono">{{ msg.created_at }}</span>
+                  </div>
+
+                  <!-- 削除ボタン（本人またはリーダー） -->
+                  {% if msg.student_id == current_user_id or user_role in ['president', 'vice_president'] %}
+                    <form action="{{ url_for('delete_message', club_id=club.id, message_id=msg.id) }}" method="POST" 
+                          onsubmit="return confirm('この伝言を削除しますか？');" class="inline-flex">
+                      <button type="submit" class="text-rose-500 hover:text-rose-750 hover:bg-rose-50 p-1.5 rounded-xl transition-colors cursor-pointer" title="メッセージを削除">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+                <p class="text-gray-600 leading-relaxed text-[11px] break-all whitespace-pre-wrap">{{ msg.content }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="p-8 text-center rounded-2xl bg-gray-55/30 border border-dashed border-gray-200 text-[10px] text-gray-400 select-none">
+            伝言メッセージはありません。
           </div>
         {% endif %}
       </div>
@@ -336,38 +430,40 @@
         <div id="settings-panel" class="hidden px-4 pb-4 pt-0.5 border-t border-gray-200/60 flex flex-col gap-3 bg-white">
           <p class="text-[9px] text-gray-400 leading-normal">
             サークル所属メンバーの管理用です。登録学生のみが鍵の借用と報告書の作成を行えます。
+            {% if user_role not in ['president', 'vice_president'] %}
+              <br><span class="text-rose-500 font-semibold">※ メンバーの追加・解除・役職変更は部長または副部長のみ行えます。</span>
+            {% endif %}
           </p>
 
           <div class="flex flex-col gap-1.5">
             <h4 class="text-[9px] font-bold text-gray-400 ml-1">登録済みのメンバー（{{ members|length }}名）</h4>
-            <div class="max-h-[150px] overflow-y-auto no-scrollbar border border-gray-200 rounded-xl p-2 bg-gray-50 flex flex-col gap-1">
+            <div class="max-h-[160px] overflow-y-auto no-scrollbar border border-gray-200 rounded-xl p-2 bg-gray-50 flex flex-col gap-1">
               {% for mem in members %}
                 <div class="flex items-center justify-between px-2.5 py-1.5 bg-white rounded-lg border border-gray-200/80 text-[10px]">
-                  <div class="flex items-center gap-2">
-                    <div class="flex flex-col">
-                      <div class="flex items-center gap-1.5">
-                        <span class="font-bold text-gray-700">{{ mem.name }}</span>
-                        {% if mem.role == 'president' %}
-                          <span class="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[8px] font-bold text-indigo-650">部長</span>
-                        {% elif mem.role == 'vice_president' %}
-                          <span class="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-[8px] font-bold text-amber-650">副部長</span>
-                        {% endif %}
-                      </div>
-                      <span class="font-mono text-gray-400">{{ mem.student_id }}</span>
+                  <div class="flex flex-col gap-0.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="font-bold text-gray-700">{{ mem.name }}</span>
+                      {% if mem.role == 'president' %}
+                        <span class="px-1 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[8px] font-bold text-indigo-650">部長</span>
+                      {% elif mem.role == 'vice_president' %}
+                        <span class="px-1 py-0.5 rounded bg-amber-50 border border-amber-100 text-[8px] font-bold text-amber-650">副部長</span>
+                      {% endif %}
                     </div>
+                    <span class="font-mono text-gray-400">{{ mem.student_id }}</span>
                   </div>
                   
-                  <div class="flex items-center gap-1.5">
+                  <div class="flex items-center gap-1.5 flex-shrink-0">
                     {% if user_role in ['president', 'vice_president'] %}
-                      <!-- 役職変更セレクト -->
-                      <select onchange="changeMemberRole('{{ mem.student_id }}', this.value)"
-                              class="px-1.5 py-0.5 rounded border border-gray-300 bg-white text-[9px] font-medium text-gray-650 focus:outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer">
+                      <!-- 役職変更セレクトボックス -->
+                      <select onchange="changeMemberRole('{{ club.id }}', '{{ mem.student_id }}', this.value)"
+                              class="px-1.5 py-0.5 rounded-lg border border-gray-300 bg-white text-[9px] font-bold text-gray-650 focus:outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer">
                         <option value="member" {% if mem.role == 'member' %}selected{% endif %}>一般部員</option>
                         <option value="vice_president" {% if mem.role == 'vice_president' %}selected{% endif %}>副部長</option>
                         <option value="president" {% if mem.role == 'president' %}selected{% endif %}>部長</option>
                       </select>
 
-                      <button type="button" onclick="removeClubMember('{{ mem.student_id }}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 font-bold transition-colors cursor-pointer text-[9px]">
+                      <button type="button" onclick="removeClubMember('{{ mem.student_id }}')" 
+                              class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 font-bold transition-colors cursor-pointer text-[9px]">
                         解除
                       </button>
                     {% endif %}
@@ -390,10 +486,6 @@
                 登録する
               </button>
             </form>
-          {% else %}
-            <p class="text-[9px] text-rose-500 font-semibold border-t border-gray-100 pt-3 text-center">
-              ※ メンバーの追加・解除・役職変更は部長または副部長のみ行えます。
-            </p>
           {% endif %}
         </div>
       </div>
@@ -418,14 +510,17 @@
     document.getElementById('content-lend').classList.add('hidden');
     document.getElementById('content-status').classList.add('hidden');
     document.getElementById('content-reports').classList.add('hidden');
+    document.getElementById('content-messages').classList.add('hidden');
 
     const btnLend = document.getElementById('dtab-lend');
     const btnStatus = document.getElementById('dtab-status');
     const btnReports = document.getElementById('dtab-reports');
+    const btnMessages = document.getElementById('dtab-messages');
 
     btnLend.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
     btnStatus.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
     btnReports.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
+    btnMessages.className = "flex-1 py-2 rounded-lg text-center text-gray-500 hover:text-gray-900 transition-all cursor-pointer";
 
     if (tab === 'lend') {
       document.getElementById('content-lend').classList.remove('hidden');
@@ -436,6 +531,9 @@
     } else if (tab === 'reports') {
       document.getElementById('content-reports').classList.remove('hidden');
       btnReports.className = "flex-1 py-2 rounded-lg text-center bg-white text-gray-900 shadow-sm border border-gray-200/50 cursor-pointer";
+    } else if (tab === 'messages') {
+      document.getElementById('content-messages').classList.remove('hidden');
+      btnMessages.className = "flex-1 py-2 rounded-lg text-center bg-white text-gray-900 shadow-sm border border-gray-200/50 cursor-pointer";
     }
   }
 
@@ -528,8 +626,7 @@
     });
   }
 
-  function changeMemberRole(studentId, newRole) {
-    const clubId = "{{ club.id }}";
+  function changeMemberRole(clubId, studentId, newRole) {
     fetch(`/club/${clubId}/change_role`, {
       method: 'POST',
       headers: {
@@ -540,17 +637,17 @@
     .then(res => res.json().then(data => ({ status: res.status, data })))
     .then(({ status, data }) => {
       if (status === 200) {
-        showDetailLocalToast('success', data.message);
+        showToast('success', data.message);
         setTimeout(() => {
           location.reload();
         }, 1000);
       } else {
-        showDetailLocalToast('error', data.message);
+        showToast('error', data.message);
       }
     })
     .catch(err => {
       console.error(err);
-      showDetailLocalToast('error', '通信エラーが発生しました。');
+      showToast('error', '通信エラーが発生しました。');
     });
   }
 

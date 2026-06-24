@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS members;
 DROP TABLE IF EXISTS borrow_records;
 DROP TABLE IF EXISTS activity_reports;
 DROP TABLE IF EXISTS favorites;
+DROP TABLE IF EXISTS club_messages;
 
 CREATE TABLE clubs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,5 +52,16 @@ CREATE TABLE favorites (
   student_id TEXT NOT NULL,
   club_id INTEGER NOT NULL,
   PRIMARY KEY (student_id, club_id),
+  FOREIGN KEY (club_id) REFERENCES clubs (id)
+);
+
+CREATE TABLE club_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id INTEGER NOT NULL,
+  student_id TEXT NOT NULL,
+  sender_name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  is_private INTEGER NOT NULL DEFAULT 0, -- 0: 公開, 1: 非公開 (部内限定)
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (club_id) REFERENCES clubs (id)
 );
