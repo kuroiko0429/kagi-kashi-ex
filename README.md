@@ -134,3 +134,89 @@ kagi-kashi-ex/
 - [ ] 部室の利用予約・スケジュールカレンダー機能
 - [ ] 部室のリアルタイム混雑度（入室人数）メーター表示
 - [ ] 長時間借用（返却忘れ）時のアラート警告システム
+
+
+
+```python
+
+sqlite3.OperationalError
+sqlite3.OperationalError: no such column: role
+
+Traceback (most recent call last)
+File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1536, in __call__
+    ) -> cabc.Iterable[bytes]:
+        """The WSGI server calls the Flask application object as the
+        WSGI application. This calls :meth:`wsgi_app`, which can be
+        wrapped to apply middleware.
+        """
+        return self.wsgi_app(environ, start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1514, in wsgi_app
+            try:
+                ctx.push()
+                response = self.full_dispatch_request()
+            except Exception as e:
+                error = e
+                response = self.handle_exception(e)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^
+            except:
+                error = sys.exc_info()[1]
+                raise
+            return response(environ, start_response)
+        finally:
+File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+        ctx = self.request_context(environ)
+        error: BaseException | None = None
+        try:
+            try:
+                ctx.push()
+                response = self.full_dispatch_request()
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            except Exception as e:
+                error = e
+                response = self.handle_exception(e)
+            except:
+                error = sys.exc_info()[1]
+File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+            request_started.send(self, _async_wrapper=self.ensure_sync)
+            rv = self.preprocess_request()
+            if rv is None:
+                rv = self.dispatch_request()
+        except Exception as e:
+            rv = self.handle_user_exception(e)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        return self.finalize_request(rv)
+ 
+    def finalize_request(
+        self,
+        rv: ft.ResponseReturnValue | HTTPException,
+File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+rv = self.dispatch_request()
+     ^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+            and req.method == "OPTIONS"
+        ):
+            return self.make_default_options_response()
+        # otherwise dispatch to the handler for that endpoint
+        view_args: dict[str, t.Any] = req.view_args  # type: ignore[assignment]
+        return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 
+    def full_dispatch_request(self) -> Response:
+        """Dispatches the request and on top of that performs request
+        pre and postprocessing as well as HTTP exception catching and
+        error handling.
+File "c:\Users\hiu\Documents\kagi-kashi-ex\flaskr\__init__.py", line 313, in detail
+members = conn.execute(
+          
+sqlite3.OperationalError: no such column: role
+The debugger caught an exception in your WSGI application. You can now look at the traceback which led to the error.
+To switch between the interactive traceback and the plaintext one, you can click on the "Traceback" headline. From the text traceback you can also create a paste of it. For code execution mouse-over the frame you want to debug and click on the console icon on the right side.
+
+You can execute arbitrary Python code in the stack frames and there are some extra helpers available for introspection:
+
+dump() shows all variables in the frame
+dump(obj) dumps all that's known about the object
+Brought to you by DON'T PANIC, your friendly Werkzeug powered traceback interpreter.
+
+```
