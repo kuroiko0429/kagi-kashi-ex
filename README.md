@@ -129,3 +129,47 @@ kagi-kashi-ex/
 - [ ] 長時間借用（返却忘れ）時のアラート警告システム
 
 
+Traceback (most recent call last):
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "c:\Users\hiu\Documents\kagi-kashi-ex\flaskr\__init__.py", line 350, in detail
+    messages = conn.execute(
+    
+sqlite3.OperationalError: no such table: club_messages
+127.0.0.1 - - [24/Jun/2026 14:11:00] "GET /club/7?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 304 -
+127.0.0.1 - - [24/Jun/2026 14:11:00] "GET /club/7?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 304 -
+127.0.0.1 - - [24/Jun/2026 14:11:01] "GET /club/7?__debugger__=yes&cmd=resource&f=console.png&s=qX5afRKEJ6CgkqCOJvHE HTTP/1.1" 200 -
+127.0.0.1 - - [24/Jun/2026 14:11:01] "GET /club/7?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 304 -
+127.0.0.1 - - [24/Jun/2026 14:11:14] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [24/Jun/2026 14:11:19] "GET /club/7 HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\hiu\Documents\kagi-kashi-ex\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "c:\Users\hiu\Documents\kagi-kashi-ex\flaskr\__init__.py", line 350, in detail
+    messages = conn.execute(
+    
+sqlite3.OperationalError: no such table: club_messages
