@@ -33,8 +33,44 @@ def close_db(e=None):
 
 
 def _migrate_db(db):
-    """既存DBに不足カラムを追加するマイグレーション。"""
+    """既存DBに不足テーブル・カラムを追加するマイグレーション。"""
     cursor = db.cursor()
+
+    # club_messages テーブルが存在しない場合は作成
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='club_messages'"
+    )
+    if not cursor.fetchone():
+        cursor.execute(
+            '''CREATE TABLE club_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                club_id INTEGER NOT NULL,
+                student_id TEXT NOT NULL,
+                sender_name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                is_private INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (club_id) REFERENCES clubs (id)
+            )'''
+        )
+        db.commit()
+
+    # favorites テーブルが存在しない場合は作成
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'"
+    )
+    if not cursor.fetchone():
+        cursor.execute(
+            '''CREATE TABLE favorites (
+                student_id TEXT NOT NULL,
+                club_id INTEGER NOT NULL,
+                PRIMARY KEY (student_id, club_id),
+                FOREIGN KEY (club_id) REFERENCES clubs (id)
+            )'''
+        )
+        db.commit()
+
+    # members テーブルの不足カラムを追加
     existing = {row[1] for row in cursor.execute("PRAGMA table_info(members)")}
     if 'role' not in existing:
         cursor.execute(
