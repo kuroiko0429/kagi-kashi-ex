@@ -92,7 +92,7 @@
           </div>
           <i data-lucide="chevron-down" id="arrow-sports" class="w-4 h-4 text-gray-400 transition-transform duration-200 -rotate-90"></i>
         </button>
-        <div id="content-sports" class="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out">
+        <div id="content-sports" class="grid grid-rows-[0fr] opacity-0 pointer-events-none transition-[grid-template-rows,opacity] duration-300 ease-in-out">
           <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
             {% for key in keys if key.category == 'sports' %}
               <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
@@ -204,7 +204,7 @@
           </div>
           <i data-lucide="chevron-down" id="arrow-cultural" class="w-4 h-4 text-gray-400 transition-transform duration-200 -rotate-90"></i>
         </button>
-        <div id="content-cultural" class="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out">
+        <div id="content-cultural" class="grid grid-rows-[0fr] opacity-0 pointer-events-none transition-[grid-template-rows,opacity] duration-300 ease-in-out">
           <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
             {% for key in keys if key.category == 'cultural' %}
               <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
@@ -305,7 +305,7 @@
           </div>
           <i data-lucide="chevron-down" id="arrow-association" class="w-4 h-4 text-gray-400 transition-transform duration-200 -rotate-90"></i>
         </button>
-        <div id="content-association" class="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out">
+        <div id="content-association" class="grid grid-rows-[0fr] opacity-0 pointer-events-none transition-[grid-template-rows,opacity] duration-300 ease-in-out">
           <div class="overflow-hidden px-4 py-2 flex flex-col gap-3">
             {% for key in keys if key.category == 'association' %}
               <div class="club-card p-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200/60 flex gap-3 relative transition-all duration-200"
@@ -516,7 +516,7 @@
     const arrow = document.getElementById(`arrow-${cat}`);
     section.setAttribute('data-expanded', 'false');
     content.classList.remove('grid-rows-[1fr]', 'opacity-100');
-    content.classList.add('grid-rows-[0fr]', 'opacity-0');
+    content.classList.add('grid-rows-[0fr]', 'opacity-0', 'pointer-events-none');
     arrow.classList.add('-rotate-90');
   }
 
@@ -525,7 +525,7 @@
     const content = document.getElementById(`content-${cat}`);
     const arrow = document.getElementById(`arrow-${cat}`);
     section.setAttribute('data-expanded', 'true');
-    content.classList.remove('grid-rows-[0fr]', 'opacity-0');
+    content.classList.remove('grid-rows-[0fr]', 'opacity-0', 'pointer-events-none');
     content.classList.add('grid-rows-[1fr]', 'opacity-100');
     arrow.classList.remove('-rotate-90');
   }
