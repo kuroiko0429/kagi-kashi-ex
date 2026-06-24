@@ -17,6 +17,8 @@ def get_db():
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clubs'")
             if not cursor.fetchone():
                 init_db()
+            else:
+                _migrate_db(g.db)
         except sqlite3.Error:
             pass
 
@@ -28,6 +30,22 @@ def close_db(e=None):
 
     if db is not None:
         db.close()
+
+
+def _migrate_db(db):
+    """既存DBに不足カラムを追加するマイグレーション。"""
+    cursor = db.cursor()
+    existing = {row[1] for row in cursor.execute("PRAGMA table_info(members)")}
+    if 'role' not in existing:
+        cursor.execute(
+            "ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"
+        )
+        db.commit()
+    if 'registered_at' not in existing:
+        cursor.execute(
+            "ALTER TABLE members ADD COLUMN registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        )
+        db.commit()
 
 
 def init_db():
