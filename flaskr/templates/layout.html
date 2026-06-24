@@ -181,13 +181,27 @@
           iconClass = 'text-gray-500';
         }
 
-        toast.innerHTML = `
-          <i data-lucide="${iconName}" class="w-4.5 h-4.5 flex-shrink-0 ${iconClass}"></i>
-          <p class="text-xs font-medium">${message}</p>
-          <button onclick="dismissToast(this.parentElement)" class="ml-auto text-gray-400 hover:text-gray-600 transition-colors p-0.5">
-            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          </button>
-        `;
+        // XSS防止：innerHTML を使わず DOM API で構築
+        const iconEl = document.createElement('i');
+        iconEl.setAttribute('data-lucide', iconName);
+        iconEl.className = `w-4.5 h-4.5 flex-shrink-0 ${iconClass}`;
+
+        const msgEl = document.createElement('p');
+        msgEl.className = 'text-xs font-medium';
+        msgEl.textContent = message;
+
+        const closeIcon = document.createElement('i');
+        closeIcon.setAttribute('data-lucide', 'x');
+        closeIcon.className = 'w-3.5 h-3.5';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'ml-auto text-gray-400 hover:text-gray-600 transition-colors p-0.5';
+        closeBtn.addEventListener('click', () => dismissToast(toast));
+        closeBtn.appendChild(closeIcon);
+
+        toast.appendChild(iconEl);
+        toast.appendChild(msgEl);
+        toast.appendChild(closeBtn);
 
         container.appendChild(toast);
         lucide.createIcons();

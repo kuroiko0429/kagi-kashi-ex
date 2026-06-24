@@ -50,14 +50,29 @@ def create_app(test_config=None):
                 flash('学籍番号と氏名を入力してください。', 'error')
                 return render_template('login.html')
 
+            # セキュリティ：学籍番号がDBに存在するか確認（なりすまし防止）
+            conn = db.get_db()
+            member = conn.execute(
+                'SELECT name FROM members WHERE student_id = ? LIMIT 1',
+                (student_id,)
+            ).fetchone()
+            if not member:
+                flash('この学籍番号はシステムに登録されていません。Googleアカウントでログインしてください。', 'error')
+                return render_template('login.html')
+
+            # DB登録氏名を使用（フォーム入力の氏名は無視してなりすまし防止）
+            display_name = member['name']
+
             # セッションにユーザー情報を保存
             session['user_id'] = student_id
-            session['user_name'] = name
+            session['user_name'] = display_name
 
-            flash(f'{name}さん、ログインしました。', 'success')
-            
-            # 元のページに戻るか、一覧ページへリダイレクト
-            next_url = request.args.get('next')
+            flash(f'{display_name}さん、ログインしました。', 'success')
+
+            # 元のページに戻るか、一覧ページへリダイレクト（オープンリダイレクト防止）
+            next_url = request.args.get('next', '')
+            if next_url and (not next_url.startswith('/') or next_url.startswith('//')):
+                next_url = ''
             return redirect(next_url or url_for('index'))
 
         return render_template('login.html')
@@ -124,7 +139,7 @@ def create_app(test_config=None):
         
         client_id = os.environ.get('GOOGLE_CLIENT_ID')
         client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-        if not mock_login and (not client_id or not client_secret):
+        if not mock_login:
             return render_template('google_setup_warning.html', next_url=next_url)
             
         return render_template('mock_google_signin.html', next_url=next_url)
@@ -147,8 +162,8 @@ def create_app(test_config=None):
         mock_login = os.environ.get('GOOGLE_MOCK_LOGIN', 'false').lower() == 'true'
 
         if not code:
-            if mock_login or (not client_id or not client_secret):
-                # モックログインの直接パラメータ取得
+            if mock_login:
+                # モックログインの直接パラメータ取得（GOOGLE_MOCK_LOGIN=true の場合のみ）
                 email = request.args.get('email', '').strip().lower()
                 name = request.args.get('name', '').strip()
                 next_url = request.args.get('next', '')
@@ -221,6 +236,9 @@ def create_app(test_config=None):
         session['is_google_login'] = True
 
         flash(f'Googleアカウント ({email}) でログインしました。', 'success')
+        # オープンリダイレクト防止：相対パスのみ許可
+        if next_url and (not next_url.startswith('/') or next_url.startswith('//')):
+            next_url = ''
         return redirect(next_url or url_for('index'))
 
     # ログアウトページ
@@ -324,32 +342,37 @@ def create_app(test_config=None):
             (club_id,)
         ).fetchall()
 
-        # ログインユーザーのこのサークルでの役職を取得
+        # ログインユーザーのこのサークルでの役職・入部日を取得
         user_role = None
+        user_registered_at = None
         if user_id:
             user_member = conn.execute(
-                'SELECT role FROM members WHERE club_id = ? AND student_id = ?',
+                'SELECT role, registered_at FROM members WHERE club_id = ? AND student_id = ?',
                 (club_id, user_id)
             ).fetchone()
             if user_member:
                 user_role = user_member['role']
+                user_registered_at = user_member['registered_at']
 
-        # 伝言板メッセージの取得 (新しい順。部員でなければ公開(is_private=0)のみ表示)
+        # 伝言板メッセージの取得 (新しい順)
+        # 部員でなければ公開(is_private=0)のみ表示
+        # 部員であっても入部前の非公開メッセージは表示しない（情報漏洩防止）
         if user_role is not None:
             messages = conn.execute(
                 '''
-                SELECT cm.*, m.role 
+                SELECT cm.*, m.role
                 FROM club_messages cm
                 LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
-                WHERE cm.club_id = ? 
+                WHERE cm.club_id = ?
+                  AND (cm.is_private = 0 OR cm.created_at >= ?)
                 ORDER BY cm.created_at DESC
                 ''',
-                (club_id,)
+                (club_id, user_registered_at)
             ).fetchall()
         else:
             messages = conn.execute(
                 '''
-                SELECT cm.*, m.role 
+                SELECT cm.*, m.role
                 FROM club_messages cm
                 LEFT JOIN members m ON cm.club_id = m.club_id AND cm.student_id = m.student_id
                 WHERE cm.club_id = ? AND cm.is_private = 0
@@ -448,11 +471,6 @@ def create_app(test_config=None):
                     (club_id,)
                 )
                 conn.commit()
-                
-                # セッションに最新ユーザーを記憶
-                session['user_id'] = student_id
-                session['user_name'] = name
-                
                 flash(f'{name}さんが鍵番号 {key_number} を借りました。活動開始です！', 'success')
             except Exception as e:
                 conn.rollback()
@@ -564,6 +582,12 @@ def create_app(test_config=None):
     # 状況・メッセージの更新処理
     @app.route('/club/<int:club_id>/status', methods=('POST',))
     def update_status(club_id):
+        # セキュリティ：ログイン必須チェック
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('状況を変更するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
+
         status = request.form.get('status')
         message = request.form.get('message', '').strip()
 
@@ -572,6 +596,16 @@ def create_app(test_config=None):
             return redirect(url_for('detail', club_id=club_id))
 
         conn = db.get_db()
+
+        # セキュリティ：サークルメンバーか確認
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, user_id)
+        ).fetchone()
+        if not member:
+            flash('このサークルの登録メンバーのみが状況を変更できます。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
+
         try:
             conn.execute(
                 "UPDATE clubs SET status = ?, message = ? WHERE id = ?",
@@ -633,41 +667,44 @@ def create_app(test_config=None):
     # 活動報告書の提出処理
     @app.route('/club/<int:club_id>/report', methods=('POST',))
     def submit_report(club_id):
-        reporter_name = request.form['reporter_name'].strip()
-        student_id = request.form['student_id'].strip().upper()
+        # セキュリティ：ログイン必須チェック
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('活動報告書を提出するにはログインが必要です。', 'error')
+            return redirect(url_for('login', next=request.path))
+
+        # セキュリティ：student_id はセッションから取得（フォーム値による他人へのなりすまし防止）
+        student_id = user_id
         report_date = request.form['report_date'].strip()
         description = request.form['description'].strip()
 
-        if not reporter_name or not student_id or not report_date or not description:
+        if not report_date or not description:
             flash('すべての項目を入力してください。', 'error')
             return redirect(url_for('detail', club_id=club_id))
 
         conn = db.get_db()
 
-        # サークルメンバーか確認
+        # サークルメンバーか確認し、DB登録氏名を取得
         member = conn.execute(
             'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
             (club_id, student_id)
         ).fetchone()
 
         if not member:
-            flash(f'学籍番号 {student_id} はこのサークルに登録されていないため、報告書を提出できません。', 'error')
+            flash('このサークルに登録されていないため、報告書を提出できません。', 'error')
             return redirect(url_for('detail', club_id=club_id))
+
+        reporter_name = member['name']
 
         try:
             conn.execute(
                 '''
-                INSERT INTO activity_reports (club_id, reporter_name, student_id, report_date, description) 
+                INSERT INTO activity_reports (club_id, reporter_name, student_id, report_date, description)
                 VALUES (?, ?, ?, ?, ?)
                 ''',
                 (club_id, reporter_name, student_id, report_date, description)
             )
             conn.commit()
-            
-            # セッションに最新ユーザーを記憶
-            session['user_id'] = student_id
-            session['user_name'] = reporter_name
-            
             flash('活動報告書を提出しました！', 'success')
         except Exception as e:
             conn.rollback()
@@ -692,6 +729,15 @@ def create_app(test_config=None):
         if not club:
             flash('指定されたサークルが見つかりません。', 'error')
             return redirect(url_for('index'))
+
+        # セキュリティ：当該サークルの部員のみエクスポート可（IDOR防止）
+        member = conn.execute(
+            'SELECT * FROM members WHERE club_id = ? AND student_id = ?',
+            (club_id, user_id)
+        ).fetchone()
+        if not member:
+            flash('このサークルの登録メンバーのみが報告書をエクスポートできます。', 'error')
+            return redirect(url_for('detail', club_id=club_id))
 
         # 対象月（デフォルト：当月）
         import datetime
@@ -996,6 +1042,10 @@ def create_app(test_config=None):
 
         if not member:
             return jsonify({'status': 'error', 'message': '指定されたメンバーが見つかりません。'}), 404
+
+        # セキュリティ：部長への昇格は現部長のみ実行可能（副部長による自己昇格防止）
+        if new_role == 'president' and leader['role'] != 'president':
+            return jsonify({'status': 'error', 'message': '部長への役職変更は現在の部長のみが実行できます。'}), 403
 
         try:
             # もし新しい部長（president）を設定する場合、現在の部長の役職を一般部員（member）に変更する
