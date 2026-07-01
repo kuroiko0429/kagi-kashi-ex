@@ -159,12 +159,12 @@
                     {% if key.status == 'locked' %}
                       <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
                          class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        借りる
+                        活動中
                       </a>
                     {% else %}
                       <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
                          class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        返す
+                        施錠中
                       </a>
                       {% if key.status == 'active' %}
                         <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'temp_locked')"
