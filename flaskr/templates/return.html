@@ -1,6 +1,6 @@
 {% extends 'layout.html' %}
 
-{% block title %}鍵を返す | Kagi-Kashi{% endblock %}
+{% block title %}施錠 | Kagi-Kashi{% endblock %}
 
 {% block content %}
 <div class="flex-grow flex flex-col h-full bg-white">
@@ -11,7 +11,7 @@
       <a href="{{ url_for('detail', club_id=club.id) }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
         <i data-lucide="chevron-left" class="w-5 h-5"></i>
       </a>
-      <h2 class="text-sm font-bold text-gray-900">鍵を返す</h2>
+      <h2 class="text-sm font-bold text-gray-900">施錠</h2>
     </div>
   </div>
 
@@ -82,7 +82,7 @@
       <form action="{{ url_for('return_key', club_id=club.id) }}" method="POST" class="mt-3.5">
         <button type="submit" 
                 class="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white shadow-sm active:scale-95 transition-all cursor-pointer">
-          返却を確定する（保管中に戻す）
+          施錠する（保管中に戻す）
         </button>
       </form>
     </div>

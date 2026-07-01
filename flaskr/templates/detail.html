@@ -137,9 +137,9 @@
               サークルメンバーであれば、鍵を借りて活動を開始できます。
             </p>
           </div>
-          <a href="{{ url_for('borrow_key', club_id=club.id) }}" 
+          <a href="{{ url_for('borrow_key', club_id=club.id) }}"
              class="w-full py-2.5 mt-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white text-center shadow-sm active:scale-98 transition-all cursor-pointer">
-            鍵を借りる手続きへ進む
+            解錠する
           </a>
         </div>
       {% else %}
@@ -165,9 +165,9 @@
             </div>
           </div>
 
-          <a href="{{ url_for('return_key', club_id=club.id) }}" 
+          <a href="{{ url_for('return_key', club_id=club.id) }}"
              class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white text-center shadow-sm active:scale-98 transition-all cursor-pointer mt-1">
-            鍵を返却する手続きへ進む
+            施錠する
           </a>
         </div>
       {% endif %}

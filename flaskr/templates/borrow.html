@@ -1,6 +1,6 @@
 {% extends 'layout.html' %}
 
-{% block title %}鍵を借りる | Kagi-Kashi{% endblock %}
+{% block title %}解錠 | Kagi-Kashi{% endblock %}
 
 {% block content %}
 <div class="flex-grow flex flex-col h-full bg-white">
@@ -11,7 +11,7 @@
       <a href="{{ url_for('detail', club_id=club.id) }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
         <i data-lucide="chevron-left" class="w-5 h-5"></i>
       </a>
-      <h2 class="text-sm font-bold text-gray-900">鍵を借りる</h2>
+      <h2 class="text-sm font-bold text-gray-900">解錠</h2>
     </div>
   </div>
 
@@ -77,7 +77,7 @@
         <!-- 借用確定ボタン -->
         <button type="submit" 
                 class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white shadow-sm active:scale-95 transition-all cursor-pointer">
-          鍵を借りる（活動開始）
+          解錠する（活動開始）
         </button>
       </form>
     </div>
