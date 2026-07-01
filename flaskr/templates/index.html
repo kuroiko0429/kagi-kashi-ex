@@ -167,12 +167,12 @@
                         返す
                       </a>
                       {% if key.status == 'active' %}
-                        <button type="button" onclick="handleQuickStatus(event, {{ key.id }}, 'temp_locked')"
+                        <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'temp_locked')"
                                 class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
                           一時施錠
                         </button>
                       {% elif key.status == 'temp_locked' %}
-                        <button type="button" onclick="handleQuickStatus(event, {{ key.id }}, 'active')"
+                        <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'active')"
                                 class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
                           活動再開
                         </button>
@@ -183,7 +183,7 @@
 
                 <!-- 右側：お気に入りスター -->
                 <div class="flex items-center justify-center z-20">
-                  <button onclick="toggleFav(this, {{ key.id }})" 
+                  <button onclick="toggleFav(this, '{{ key.id }}')"
                           class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
                     <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
                   </button>
@@ -284,7 +284,7 @@
 
                 <!-- 右側：お気に入りスター -->
                 <div class="flex items-center justify-center z-20">
-                  <button onclick="toggleFav(this, {{ key.id }})" 
+                  <button onclick="toggleFav(this, '{{ key.id }}')" 
                           class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
                     <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
                   </button>
@@ -385,7 +385,7 @@
 
                 <!-- 右側：お気に入りスター -->
                 <div class="flex items-center justify-center z-20">
-                  <button onclick="toggleFav(this, {{ key.id }})" 
+                  <button onclick="toggleFav(this, '{{ key.id }}')"
                           class="p-1 rounded-full text-gray-300 hover:text-amber-400 cursor-pointer">
                     <i data-lucide="star" class="w-5.5 h-5.5 {% if key.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
                   </button>
