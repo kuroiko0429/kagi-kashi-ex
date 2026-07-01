@@ -29,7 +29,7 @@
       {% endif %}
 
       <!-- お気に入りスター -->
-      <button onclick="toggleFavDetail(this, {{ club.id }})"
+      <button onclick="toggleFavDetail(this, '{{ club.id }}')"
               class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-amber-500 cursor-pointer">
         <i data-lucide="star" class="w-5 h-5 {% if club.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
       </button>
@@ -80,13 +80,13 @@
       {% if club.status != 'locked' %}
         <div class="mt-3.5 flex gap-2">
           {% if club.status == 'active' %}
-            <button type="button" onclick="handleQuickStatusDetail({{ club.id }}, 'temp_locked')" 
+            <button type="button" onclick="handleQuickStatusDetail('{{ club.id }}', 'temp_locked')"
                     class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1">
               <i data-lucide="pause-circle" class="w-3.5 h-3.5"></i>
               一時施錠する
             </button>
           {% elif club.status == 'temp_locked' %}
-            <button type="button" onclick="handleQuickStatusDetail({{ club.id }}, 'active')" 
+            <button type="button" onclick="handleQuickStatusDetail('{{ club.id }}', 'active')" 
                     class="px-3 py-1.5 rounded-xl bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1">
               <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
               活動を再開する
