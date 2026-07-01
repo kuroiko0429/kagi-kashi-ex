@@ -20,8 +20,16 @@
         <i data-lucide="rotate-cw" class="w-5 h-5"></i>
       </button>
 
+      <!-- 管理者画面ボタン（部長・副部長のみ表示） -->
+      {% if user_role in ['president', 'vice_president'] %}
+        <a href="{{ url_for('club_admin', club_id=club.id) }}"
+           class="p-2 rounded-xl hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors cursor-pointer" title="管理者画面">
+          <i data-lucide="shield" class="w-5 h-5"></i>
+        </a>
+      {% endif %}
+
       <!-- お気に入りスター -->
-      <button onclick="toggleFavDetail(this, {{ club.id }})" 
+      <button onclick="toggleFavDetail(this, {{ club.id }})"
               class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-amber-500 cursor-pointer">
         <i data-lucide="star" class="w-5 h-5 {% if club.is_favorite %}fill-amber-400 text-amber-400{% endif %}"></i>
       </button>
@@ -228,77 +236,33 @@
     <!-- タブコンテンツ 3: 活動報告 -->
     <div id="content-reports" class="mt-5 hidden flex flex-col gap-4">
 
-      <!-- 活動報告のエクセル（CSV）エクスポート -->
-      <div class="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex flex-col gap-2.5 shadow-sm">
-        <div class="flex items-center gap-1.5 text-indigo-950 font-bold text-xs">
-          <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-650"></i>
-          活動報告書のダウンロード
-        </div>
-        <p class="text-[10px] text-gray-500 leading-normal">
-          鍵の貸出履歴（活動時間）と活動報告（内容）を自動でマッチングし、Excel等で開けるCSVファイルとしてエクスポートします。
-        </p>
-        <form action="{{ url_for('export_report', club_id=club.id) }}" method="GET" class="flex gap-2 items-center">
-          <select name="month" class="flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 cursor-pointer text-gray-700">
-            {% for m in export_months %}
-              <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ m }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit" class="bg-indigo-650 hover:bg-indigo-750 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer select-none">
-            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
-            出力する
-          </button>
-        </form>
-      </div>
-      
-      <!-- 報告書投稿フォーム (アコーディオン) -->
-      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
-        <button onclick="toggleAccordion('report-form-panel')" class="w-full px-4 py-3 flex items-center justify-between text-gray-700 hover:text-gray-900 cursor-pointer select-none">
-          <div class="flex items-center gap-1.5">
-            <i data-lucide="plus-circle" class="w-4 h-4 text-gray-500"></i>
-            <span class="text-xs font-bold">新規活動報告書を作成</span>
+      <!-- 部長・副部長向け：管理者画面への誘導 -->
+      {% if user_role in ['president', 'vice_president'] %}
+        <a href="{{ url_for('club_admin', club_id=club.id) }}"
+           class="flex items-center justify-between p-4 rounded-2xl bg-indigo-50 border border-indigo-200 shadow-sm hover:bg-indigo-100 transition-colors cursor-pointer">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-600">
+              <i data-lucide="shield" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-indigo-900">管理者画面へ</p>
+              <p class="text-[9px] text-indigo-500 mt-0.5">報告書の作成・メンバー管理・CSVエクスポート</p>
+            </div>
           </div>
-          <i data-lucide="chevron-down" id="accordion-arrow" class="w-4 h-4 transition-transform"></i>
-        </button>
-
-        <div id="report-form-panel" class="hidden px-4 pb-4 pt-0.5 border-t border-gray-200/60 flex flex-col gap-3">
-          <form action="{{ url_for('submit_report', club_id=club.id) }}" method="POST" class="flex flex-col gap-3">
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者学籍番号</label>
-              <input type="text" name="student_id" placeholder="S2023001" required
-                     value="{{ current_user_id or '' }}"
-                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 uppercase" />
-            </div>
-
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者氏名</label>
-              <input type="text" name="reporter_name" placeholder="佐藤 太陽" required
-                     value="{{ current_user_name or '' }}"
-                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-            </div>
-
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">活動日</label>
-              <input type="date" name="report_date" id="report_date_input" required
-                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-            </div>
-
-            <div class="flex flex-col gap-0.5">
-              <label class="text-[9px] font-bold text-gray-400 ml-1">活動内容</label>
-              <textarea name="description" placeholder="活動した内容をご記入ください。" rows="3" required
-                        class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"></textarea>
-            </div>
-
-            <button type="submit" class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all mt-1 cursor-pointer">
-              報告書を提出する
-            </button>
-          </form>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-indigo-400"></i>
+        </a>
+      {% else %}
+        <!-- 一般部員向け案内 -->
+        <div class="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/60 text-amber-800 text-[10px] leading-relaxed flex items-start gap-2 select-none">
+          <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 flex-shrink-0"></i>
+          活動報告書の提出・エクスポートは部長・副部長が管理者画面から行います。
         </div>
-      </div>
+      {% endif %}
 
-      <!-- 活動報告タイムライン -->
-      <div class="flex flex-col gap-3 mt-1">
+      <!-- 活動報告タイムライン（全員閲覧可） -->
+      <div class="flex flex-col gap-3">
         <h3 class="text-xs font-bold text-gray-700 ml-1">活動履歴</h3>
-        
+
         {% if reports %}
           <div class="relative pl-5 border-l border-gray-200 flex flex-col gap-4 ml-1.5 pt-1">
             {% for report in reports %}

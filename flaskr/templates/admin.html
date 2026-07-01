@@ -1,0 +1,285 @@
+{% extends 'layout.html' %}
+
+{% block title %}管理者画面 — {{ club.name }} | Kagi-Kashi{% endblock %}
+
+{% block content %}
+<div class="flex-grow flex flex-col h-full bg-white">
+
+  <!-- ヘッダー -->
+  <div class="px-4 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-30 select-none">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('detail', club_id=club.id) }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-800 transition-all active:scale-95">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <div class="flex flex-col">
+        <h2 class="text-sm font-bold text-gray-900 leading-tight">管理者画面</h2>
+        <span class="text-[9px] text-gray-400 leading-none mt-0.5 truncate max-w-[160px]">{{ club.name }}</span>
+      </div>
+    </div>
+    <span class="px-2 py-1 rounded-lg text-[9px] font-bold
+      {% if user_role == 'president' %}bg-indigo-50 text-indigo-700 border border-indigo-100
+      {% else %}bg-amber-50 text-amber-700 border border-amber-100{% endif %}">
+      {{ '部長' if user_role == 'president' else '副部長' }}
+    </span>
+  </div>
+
+  <!-- スクロールエリア -->
+  <div class="flex-1 overflow-y-auto no-scrollbar pb-10 px-4 flex flex-col gap-5 pt-5">
+
+    <!-- ======== 活動報告書 作成 ======== -->
+    <section>
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="file-text" class="w-4 h-4 text-gray-500"></i>
+        <h3 class="text-xs font-bold text-gray-800">活動報告書の作成</h3>
+      </div>
+
+      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
+        <button onclick="toggleAdminAccordion('report-form-panel', 'report-arrow')"
+                class="w-full px-4 py-3 flex items-center justify-between text-gray-700 hover:text-gray-900 cursor-pointer select-none">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-xs font-bold">新規活動報告書を作成</span>
+          </div>
+          <i data-lucide="chevron-down" id="report-arrow" class="w-4 h-4 transition-transform"></i>
+        </button>
+
+        <div id="report-form-panel" class="hidden px-4 pb-4 pt-1 border-t border-gray-200/60">
+          <form action="{{ url_for('submit_report', club_id=club.id) }}" method="POST" class="flex flex-col gap-3 pt-2">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">報告者</label>
+              <p class="px-3 py-2 rounded-xl bg-white border border-gray-200 text-xs text-gray-700">
+                {{ current_user_name }}（{{ current_user_id }}）
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">活動日</label>
+              <input type="date" name="report_date" id="report_date_input" required
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[9px] font-bold text-gray-400 ml-1">活動内容</label>
+              <textarea name="description" placeholder="活動した内容をご記入ください。" rows="4" required
+                        class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"></textarea>
+            </div>
+
+            <button type="submit"
+                    class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-xs text-white shadow-sm active:scale-98 transition-all cursor-pointer">
+              報告書を提出する
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== CSVエクスポート ======== -->
+    <section>
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="download" class="w-4 h-4 text-gray-500"></i>
+        <h3 class="text-xs font-bold text-gray-800">活動報告書のエクスポート</h3>
+      </div>
+
+      <div class="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex flex-col gap-2.5 shadow-sm">
+        <p class="text-[10px] text-gray-500 leading-normal">
+          鍵の貸出履歴と活動報告を自動マッチングし、Excel等で開けるCSVとして出力します。
+        </p>
+        <form action="{{ url_for('export_report', club_id=club.id) }}" method="GET" class="flex gap-2 items-center">
+          <select name="month"
+                  class="flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-400 cursor-pointer text-gray-700">
+            {% for m in export_months %}
+              <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer select-none">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+            出力
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ======== 活動履歴 ======== -->
+    <section>
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
+        <h3 class="text-xs font-bold text-gray-800">活動履歴（{{ reports|length }}件）</h3>
+      </div>
+
+      {% if reports %}
+        <div class="relative pl-5 border-l border-gray-200 flex flex-col gap-4 ml-1.5 pt-1">
+          {% for report in reports %}
+            <div class="relative">
+              <span class="absolute -left-[24px] top-1.5 w-2 h-2 rounded-full bg-gray-300 border-2 border-white"></span>
+              <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs flex flex-col gap-1.5">
+                <div class="flex justify-between items-center border-b border-gray-200/60 pb-1.5">
+                  <span class="font-bold text-gray-800">{{ report.reporter_name }} ({{ report.student_id }})</span>
+                  <span class="text-[9px] text-gray-400 font-mono">{{ report.report_date }}</span>
+                </div>
+                <p class="text-gray-600 leading-normal break-all">{{ report.description }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="p-8 text-center rounded-2xl bg-gray-50 border border-dashed border-gray-200 text-[10px] text-gray-400">
+          活動報告はまだありません。
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- ======== メンバー管理 ======== -->
+    <section class="border-t border-gray-100 pt-5">
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="users" class="w-4 h-4 text-gray-500"></i>
+        <h3 class="text-xs font-bold text-gray-800">メンバー管理（{{ members|length }}名）</h3>
+      </div>
+
+      <!-- 登録済みメンバー一覧 -->
+      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm mb-3">
+        <div class="flex flex-col gap-1 p-3">
+          {% for mem in members %}
+            <div class="flex items-center justify-between px-3 py-2 bg-white rounded-xl border border-gray-200/80 text-[10px]">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="font-bold text-gray-700">{{ mem.name }}</span>
+                  {% if mem.role == 'president' %}
+                    <span class="px-1 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[8px] font-bold text-indigo-700">部長</span>
+                  {% elif mem.role == 'vice_president' %}
+                    <span class="px-1 py-0.5 rounded bg-amber-50 border border-amber-100 text-[8px] font-bold text-amber-700">副部長</span>
+                  {% endif %}
+                </div>
+                <span class="font-mono text-gray-400">{{ mem.student_id }}</span>
+              </div>
+
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <select onchange="changeMemberRole('{{ club.id }}', '{{ mem.student_id }}', this.value)"
+                        class="px-1.5 py-0.5 rounded-lg border border-gray-300 bg-white text-[9px] font-bold text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer">
+                  <option value="member" {% if mem.role == 'member' %}selected{% endif %}>一般部員</option>
+                  <option value="vice_president" {% if mem.role == 'vice_president' %}selected{% endif %}>副部長</option>
+                  {% if user_role == 'president' %}
+                    <option value="president" {% if mem.role == 'president' %}selected{% endif %}>部長</option>
+                  {% endif %}
+                </select>
+                <button type="button" onclick="removeClubMember('{{ mem.student_id }}')"
+                        class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 font-bold transition-colors cursor-pointer text-[9px]">
+                  解除
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- メンバー追加フォーム -->
+      <div class="rounded-2xl bg-gray-50 border border-gray-200 overflow-hidden shadow-sm">
+        <button onclick="toggleAdminAccordion('add-member-panel', 'add-member-arrow')"
+                class="w-full px-4 py-3 flex items-center justify-between text-gray-700 hover:text-gray-900 cursor-pointer select-none">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="user-plus" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-xs font-bold">メンバーを追加登録</span>
+          </div>
+          <i data-lucide="chevron-down" id="add-member-arrow" class="w-4 h-4 transition-transform"></i>
+        </button>
+
+        <div id="add-member-panel" class="hidden px-4 pb-4 pt-1 border-t border-gray-200/60">
+          <form id="add-member-form" onsubmit="addClubMember(event)" class="flex flex-col gap-2 pt-2">
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="new_mem_id" placeholder="学籍番号 (S2023001)" required
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-[10px] uppercase focus:outline-none focus:ring-1 focus:ring-gray-400" />
+              <input type="text" id="new_mem_name" placeholder="氏名" required
+                     class="w-full px-3 py-2 rounded-xl bg-white border border-gray-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-gray-400" />
+            </div>
+            <button type="submit"
+                    class="w-full py-2 rounded-xl bg-gray-800 hover:bg-gray-900 font-bold text-[10px] text-white transition-colors cursor-pointer">
+              登録する
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('report_date_input');
+    if (dateInput) dateInput.value = today;
+  });
+
+  function toggleAdminAccordion(panelId, arrowId) {
+    const panel = document.getElementById(panelId);
+    const arrow = document.getElementById(arrowId);
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !isHidden);
+    arrow.style.transform = isHidden ? 'rotate(180deg)' : '';
+  }
+
+  function changeMemberRole(clubId, studentId, newRole) {
+    fetch(`/club/${clubId}/change_role`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `student_id=${encodeURIComponent(studentId)}&role=${encodeURIComponent(newRole)}`
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+      if (status === 200) {
+        showToast('success', data.message);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast('error', data.message);
+      }
+    })
+    .catch(() => showToast('error', '通信エラーが発生しました。'));
+  }
+
+  function removeClubMember(studentId) {
+    if (!confirm('本当にこのメンバーのサークル登録を解除しますか？')) return;
+    const clubId = "{{ club.id }}";
+    fetch(`/club/${clubId}/remove_member`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `student_id=${encodeURIComponent(studentId)}`
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+      if (status === 200) {
+        showToast('success', data.message);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast('error', data.message);
+      }
+    })
+    .catch(() => showToast('error', '通信エラーが発生しました。'));
+  }
+
+  function addClubMember(event) {
+    event.preventDefault();
+    const clubId = "{{ club.id }}";
+    const studentId = document.getElementById('new_mem_id').value.trim().toUpperCase();
+    const name = document.getElementById('new_mem_name').value.trim();
+    if (!studentId || !name) return;
+
+    fetch(`/club/${clubId}/add_member`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `student_id=${encodeURIComponent(studentId)}&name=${encodeURIComponent(name)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        showToast('success', data.message);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast('error', data.message);
+      }
+    })
+    .catch(() => showToast('error', '通信エラーが発生しました。'));
+  }
+</script>
+{% endblock %}
