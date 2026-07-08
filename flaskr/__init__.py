@@ -1146,132 +1146,20 @@ def create_app(test_config=None):
 
         conn = db.get_db()
         
-        # 全サークル情報の取得
-        clubs = conn.execute('SELECT * FROM clubs ORDER BY id ASC').fetchall()
-        
-        # 自分がどのサークルに入っているかを取得
-        my_memberships = conn.execute(
-            'SELECT * FROM members WHERE student_id = ?',
-            (user_id,)
-        ).fetchall()
-        
-        membership_map = {m['club_id']: m for m in my_memberships}
-        
         # お気に入りサークルを取得
         my_favorites = conn.execute(
             'SELECT f.club_id, c.name, c.room_number FROM favorites f JOIN clubs c ON f.club_id = c.id WHERE f.student_id = ?',
             (user_id,)
         ).fetchall()
         
-        from datetime import datetime
-        clubs_list = []
-        for club in clubs:
-            c_dict = dict(club)
-            club_id = c_dict['id']
-            
-            if club_id in membership_map:
-                c_dict['is_member'] = True
-                mem = membership_map[club_id]
-                reg_val = mem['registered_at']
-                if isinstance(reg_val, datetime):
-                    reg_date = reg_val
-                else:
-                    try:
-                        reg_date = datetime.strptime(reg_val.split('.')[0], '%Y-%m-%d %H:%M:%S')
-                    except Exception:
-                        reg_date = datetime.now()
-                
-                c_dict['registered_at'] = reg_date.strftime('%Y-%m-%d')
-                days_passed = (datetime.now() - reg_date).days
-                c_dict['days_passed'] = days_passed
-                c_dict['locked'] = days_passed < 30
-                c_dict['remaining_days'] = 30 - days_passed
-            else:
-                c_dict['is_member'] = False
-                c_dict['locked'] = False
-                c_dict['remaining_days'] = 0
-                c_dict['registered_at'] = ""
-                
-            clubs_list.append(c_dict)
-
-        return render_template('settings.html', clubs=clubs_list, favorites=my_favorites)
+        return render_template('settings.html', favorites=my_favorites)
 
     # 従来のルート互換性のためのリダイレクト
     @app.route('/my_clubs')
     def my_clubs():
         return redirect(url_for('settings'))
 
-    # ユーザー設定（所属サークル登録）の一括保存処理
-    @app.route('/settings/save', methods=('POST',))
-    @app.route('/my_clubs/save', methods=('POST',))
-    def save_settings():
-        user_id = session.get('user_id')
-        user_name = session.get('user_name')
-        if not user_id:
-            flash('ユーザー設定を更新するにはログインが必要です。', 'error')
-            return redirect(url_for('login'))
 
-        # チェックされたサークルIDのリストを取得
-        selected_club_ids = [int(cid) for cid in request.form.getlist('clubs')]
-        
-        conn = db.get_db()
-        
-        # 現在加入しているサークルを取得
-        current_memberships = conn.execute(
-            'SELECT * FROM members WHERE student_id = ?',
-            (user_id,)
-        ).fetchall()
-        
-        current_club_ids = [m['club_id'] for m in current_memberships]
-        membership_map = {m['club_id']: m for m in current_memberships}
-
-        # 差分検出と退部バリデーション（30日退部ロック）
-        from datetime import datetime
-        for club_id in current_club_ids:
-            if club_id not in selected_club_ids:
-                # 30日退部ロックの検証
-                mem = membership_map[club_id]
-                reg_val = mem['registered_at']
-                if isinstance(reg_val, datetime):
-                    reg_date = reg_val
-                else:
-                    try:
-                        reg_date = datetime.strptime(reg_val.split('.')[0], '%Y-%m-%d %H:%M:%S')
-                    except Exception:
-                        reg_date = datetime.now()
-                
-                days_passed = (datetime.now() - reg_date).days
-                if days_passed < 30:
-                    club_name = conn.execute('SELECT name FROM clubs WHERE id = ?', (club_id,)).fetchone()['name']
-                    remaining = 30 - days_passed
-                    flash(f'盗難防止および監査ログ維持のため、登録から30日間はサークル「{club_name}」の登録解除ができません。あと {remaining} 日間お待ちいただく必要があります。', 'error')
-                    return redirect(url_for('settings'))
-
-        # トランザクション保存処理
-        try:
-            # 加入処理
-            for club_id in selected_club_ids:
-                if club_id not in current_club_ids:
-                    conn.execute(
-                        'INSERT INTO members (club_id, student_id, name) VALUES (?, ?, ?)',
-                        (club_id, user_id, user_name)
-                    )
-            
-            # 脱退処理
-            for club_id in current_club_ids:
-                if club_id not in selected_club_ids:
-                    conn.execute(
-                        'DELETE FROM members WHERE student_id = ? AND club_id = ?',
-                        (user_id, club_id)
-                    )
-            
-            conn.commit()
-            flash('所属サークル設定を更新しました！', 'success')
-        except Exception as e:
-            conn.rollback()
-            flash(f'設定保存中にエラーが発生しました: {str(e)}', 'error')
-
-        return redirect(url_for('settings'))
 
     # 伝言板メッセージ投稿処理
     @app.route('/club/<int:club_id>/message', methods=('POST',))
