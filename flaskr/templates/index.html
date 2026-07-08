@@ -156,16 +156,7 @@
 
                   <!-- クイックアクションボタン -->
                   <div class="mt-1.5 flex gap-2 z-20 relative">
-                    {% if key.status == 'locked' %}
-                      <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                         class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        活動中
-                      </a>
-                    {% else %}
-                      <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                         class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        施錠中
-                      </a>
+                    {% if key.status != 'locked' %}
                       {% if key.status == 'active' %}
                         <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'temp_locked')"
                                 class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
@@ -268,16 +259,18 @@
 
                   <!-- クイックアクションボタン -->
                   <div class="mt-1.5 flex gap-2 z-20 relative">
-                    {% if key.status == 'locked' %}
-                      <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                         class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        借りる
-                      </a>
-                    {% else %}
-                      <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                         class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        返す
-                      </a>
+                    {% if key.status != 'locked' %}
+                      {% if key.status == 'active' %}
+                        <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'temp_locked')"
+                                class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                          一時施錠
+                        </button>
+                      {% elif key.status == 'temp_locked' %}
+                        <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'active')"
+                                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                          活動再開
+                        </button>
+                      {% endif %}
                     {% endif %}
                   </div>
                 </div>
@@ -369,16 +362,18 @@
 
                   <!-- クイックアクションボタン -->
                   <div class="mt-1.5 flex gap-2 z-20 relative">
-                    {% if key.status == 'locked' %}
-                      <a href="{{ url_for('borrow_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                         class="px-2.5 py-1 rounded-lg bg-emerald-650 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        借りる
-                      </a>
-                    {% else %}
-                      <a href="{{ url_for('return_key', club_id=key.id) }}" onclick="event.stopPropagation();"
-                         class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
-                        返す
-                      </a>
+                    {% if key.status != 'locked' %}
+                      {% if key.status == 'active' %}
+                        <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'temp_locked')"
+                                class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                          一時施錠
+                        </button>
+                      {% elif key.status == 'temp_locked' %}
+                        <button type="button" onclick="handleQuickStatus(event, '{{ key.id }}', 'active')"
+                                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-[9px] font-bold text-white shadow-sm transition-colors cursor-pointer select-none">
+                          活動再開
+                        </button>
+                      {% endif %}
                     {% endif %}
                   </div>
                 </div>

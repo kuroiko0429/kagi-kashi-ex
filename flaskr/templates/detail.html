@@ -134,13 +134,9 @@
           <div>
             <h4 class="text-xs font-bold text-gray-800">鍵は保管中（施錠）です</h4>
             <p class="text-[9px] text-gray-400 mt-1 leading-normal">
-              サークルメンバーであれば、鍵を借りて活動を開始できます。
+              施錠・解錠の操作は外部システムで管理されています。
             </p>
           </div>
-          <a href="{{ url_for('borrow_key', club_id=club.id) }}"
-             class="w-full py-2.5 mt-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white text-center shadow-sm active:scale-98 transition-all cursor-pointer">
-            解錠する
-          </a>
         </div>
       {% else %}
         <!-- 鍵が貸し出し中案内 -->
@@ -165,10 +161,9 @@
             </div>
           </div>
 
-          <a href="{{ url_for('return_key', club_id=club.id) }}"
-             class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white text-center shadow-sm active:scale-98 transition-all cursor-pointer mt-1">
-            施錠する
-          </a>
+          <div class="text-center mt-2 text-[9px] text-gray-400">
+            ※施錠操作は外部システムで行われます
+          </div>
         </div>
       {% endif %}
 
